@@ -19,3 +19,5 @@ tqdm==4.44.1
 typing==3.6.4
 typing-extensions==3.7.4.3
 wandb==0.10.31
+setproctitle
+imageio

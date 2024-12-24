@@ -137,10 +137,12 @@ class GR_MAPPO():
             :return imp_weights: (torch.Tensor) 
                 importance sampling weights.
         """
-        share_obs_batch, obs_batch, node_obs_batch, adj_batch, agent_id_batch, \
-        share_agent_id_batch, rnn_states_batch, rnn_states_critic_batch, \
-        actions_batch, value_preds_batch, return_batch, masks_batch, \
-        active_masks_batch,old_action_log_probs_batch, adv_targ, \
+        share_obs_batch, obs_batch, node_obs_batch, 
+        same_ue_adj_batch, same_ap_adj_batch, agent_id_batch, 
+        rnn_states_batch, rnn_states_critic_batch, 
+        actions_batch, value_preds_batch, return_batch, 
+        masks_batch, active_masks_batch, 
+        old_action_log_probs_batch, adv_targ, 
         available_actions_batch = sample
 
         old_action_log_probs_batch = check(old_action_log_probs_batch).to(**self.tpdv)
@@ -154,9 +156,8 @@ class GR_MAPPO():
                                                         share_obs_batch,
                                                         obs_batch,
                                                         node_obs_batch,
-                                                        adj_batch,
+                                                        same_ap_adj_batch,
                                                         agent_id_batch,
-                                                        share_agent_id_batch,
                                                         rnn_states_batch, 
                                                         rnn_states_critic_batch, 
                                                         actions_batch, 

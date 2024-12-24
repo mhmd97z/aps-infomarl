@@ -11,20 +11,40 @@ import imageio
 def _t2n(x):
     return x.detach().cpu().numpy()
 
+def generate_graph_batch(obs, same_ap_adj, same_ue_adj, agent_id):
+    same_ue_adj = same_ue_adj.reshape((-1, 2, same_ue_adj.shape[-1]))
+    same_ap_adj = same_ap_adj.reshape((-1, 2, same_ap_adj.shape[-1]))
 
-class GMPERunner(Runner):
+    n_envs = same_ap_adj.shape[0]
+    obs = obs.reshape((n_envs, -1, obs.shape[-1]))
+    agent_id = agent_id.reshape((n_envs, -1, 1))
+
+    # print("obs: ", obs.shape)
+    # print("same_ap_adj: ", same_ap_adj.shape)
+    # print("same_ue_adj: ", same_ue_adj.shape)
+    # print("agent_id: ", agent_id.shape)
+
+    graphs_list = []
+    for i in range(n_envs):
+        data = HeteroData()
+        data['channel'].x = obs[i]
+        data['channel', 'same_ue', 'channel'].edge_index = same_ue_adj[i]
+        data['channel', 'same_ap', 'channel'].edge_index = same_ap_adj[i]
+        graphs_list.append(data)
+
+    return Batch.from_data_list(graphs_list)
+
+
+class ApsRunner(Runner):
     """
     Runner class to perform training, evaluation and data
     collection for the MPEs. See parent class for details
     """
 
-    dt = 0.1
-
     def __init__(self, config):
-        super(GMPERunner, self).__init__(config)
+        super(ApsRunner, self).__init__(config)
 
     def run(self):
-        print("in runner")
         self.warmup()
 
         start = time.time()
@@ -49,23 +69,17 @@ class GMPERunner(Runner):
                 ) = self.collect(step)
 
                 # Obs reward and next obs
-                obs, agent_id, node_obs, adj, rewards, dones, infos = self.envs.step(
+                obs, states, rewards, dones, infos, mask, same_ue, same_ap = self.envs.step(
                     actions_env
                 )
-
-                print(f"obs: {obs}")
-                print(f"obs: {type(obs)}")
-                print(f"agent_id: {agent_id}")
-                print(f"node_obs: {node_obs}")
-                print(f"adj: {adj}")
-                print(f"rewards: {rewards}")
+                agent_id = torch.arange(states.shape[1]).unsqueeze(1).repeat(1, states.shape[0]).T.unsqueeze(2).numpy()
 
                 data = (
                     obs,
+                    states,
                     agent_id,
-                    node_obs,
-                    adj,
-                    agent_id,
+                    same_ue,
+                    same_ap,
                     rewards,
                     dones,
                     infos,
@@ -73,7 +87,7 @@ class GMPERunner(Runner):
                     actions,
                     action_log_probs,
                     rnn_states,
-                    rnn_states_critic,
+                    rnn_states_critic
                 )
 
                 # insert data into buffer
@@ -114,7 +128,8 @@ class GMPERunner(Runner):
 
     def warmup(self):
         # reset env
-        obs, agent_id, node_obs, adj = self.envs.reset()
+        obs, state, mask, info, same_ue, same_ap = self.envs.reset()
+        agent_id = torch.arange(state.shape[1]).unsqueeze(1).repeat(1, state.shape[0]).T.unsqueeze(2).numpy()
 
         # replay buffer
         if self.use_centralized_V:
@@ -134,13 +149,15 @@ class GMPERunner(Runner):
 
         self.buffer.share_obs[0] = share_obs.copy()
         self.buffer.obs[0] = obs.copy()
-        self.buffer.node_obs[0] = node_obs.copy()
-        self.buffer.adj[0] = adj.copy()
+        # self.buffer.node_obs[0] = node_obs.copy()
+        # self.buffer.adj[0] = adj.copy()
         self.buffer.agent_id[0] = agent_id.copy()
-        self.buffer.share_agent_id[0] = share_agent_id.copy()
+        self.buffer.same_ue_adj[0] = same_ue.copy()
+        self.buffer.same_ap_adj[0] = same_ap.copy()
 
     @torch.no_grad()
     def collect(self, step: int) -> Tuple[arr, arr, arr, arr, arr, arr]:
+        print("collect is called")
         self.trainer.prep_rollout()
         (
             value,
@@ -151,10 +168,9 @@ class GMPERunner(Runner):
         ) = self.trainer.policy.get_actions(
             np.concatenate(self.buffer.share_obs[step]),
             np.concatenate(self.buffer.obs[step]),
-            np.concatenate(self.buffer.node_obs[step]),
-            np.concatenate(self.buffer.adj[step]),
+            np.concatenate(self.buffer.same_ue_adj[step]),
+            np.concatenate(self.buffer.same_ap_adj[step]),
             np.concatenate(self.buffer.agent_id[step]),
-            np.concatenate(self.buffer.share_agent_id[step]),
             np.concatenate(self.buffer.rnn_states[step]),
             np.concatenate(self.buffer.rnn_states_critic[step]),
             np.concatenate(self.buffer.masks[step]),
@@ -169,20 +185,22 @@ class GMPERunner(Runner):
         rnn_states_critic = np.array(
             np.split(_t2n(rnn_states_critic), self.n_rollout_threads)
         )
-        # rearrange action
-        if self.envs.action_space[0].__class__.__name__ == "MultiDiscrete":
-            for i in range(self.envs.action_space[0].shape):
-                uc_actions_env = np.eye(self.envs.action_space[0].high[i] + 1)[
-                    actions[:, :, i]
-                ]
-                if i == 0:
-                    actions_env = uc_actions_env
-                else:
-                    actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)
-        elif self.envs.action_space[0].__class__.__name__ == "Discrete":
-            actions_env = np.squeeze(np.eye(self.envs.action_space[0].n)[actions], 2)
-        else:
-            raise NotImplementedError
+        # # rearrange action
+        # if self.envs.action_space[0].__class__.__name__ == "MultiDiscrete":
+        #     for i in range(self.envs.action_space[0].shape):
+        #         uc_actions_env = np.eye(self.envs.action_space[0].high[i] + 1)[
+        #             actions[:, :, i]
+        #         ]
+        #         if i == 0:
+        #             actions_env = uc_actions_env
+        #         else:
+        #             actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)
+        # elif self.envs.action_space[0].__class__.__name__ == "Discrete":
+        #     actions_env = np.squeeze(np.eye(self.envs.action_space[0].n)[actions], 2)
+        # else:
+        #     raise NotImplementedError
+
+        actions_env = actions.copy()
 
         return (
             values,
@@ -196,10 +214,10 @@ class GMPERunner(Runner):
     def insert(self, data):
         (
             obs,
+            states,
             agent_id,
-            node_obs,
-            adj,
-            agent_id,
+            same_ue,
+            same_ap,
             rewards,
             dones,
             infos,
@@ -221,30 +239,12 @@ class GMPERunner(Runner):
         masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
         masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
-        # if centralized critic, then shared_obs is concatenation of obs from all agents
-        if self.use_centralized_V:
-            # TODO stack agent_id as well for agent specific information
-            # (n_rollout_threads, n_agents, feats) -> (n_rollout_threads, n_agents*feats)
-            share_obs = obs.reshape(self.n_rollout_threads, -1)
-            # (n_rollout_threads, n_agents*feats) -> (n_rollout_threads, n_agents, n_agents*feats)
-            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
-            # (n_rollout_threads, n_agents, 1) -> (n_rollout_threads, n_agents*1)
-            share_agent_id = agent_id.reshape(self.n_rollout_threads, -1)
-            # (n_rollout_threads, n_agents*1) -> (n_rollout_threads, n_agents, n_agents*1)
-            share_agent_id = np.expand_dims(share_agent_id, 1).repeat(
-                self.num_agents, axis=1
-            )
-        else:
-            share_obs = obs
-            share_agent_id = agent_id
-
         self.buffer.insert(
-            share_obs,
+            states,
             obs,
-            node_obs,
-            adj,
+            same_ue,
+            same_ap,
             agent_id,
-            share_agent_id,
             rnn_states,
             rnn_states_critic,
             actions,
@@ -260,9 +260,9 @@ class GMPERunner(Runner):
         self.trainer.prep_rollout()
         next_values = self.trainer.policy.get_values(
             np.concatenate(self.buffer.share_obs[-1]),
-            np.concatenate(self.buffer.node_obs[-1]),
-            np.concatenate(self.buffer.adj[-1]),
-            np.concatenate(self.buffer.share_agent_id[-1]),
+            np.concatenate(self.buffer.agent_id[-1]),
+            np.concatenate(self.buffer.same_ue_adj[-1]),
+            np.concatenate(self.buffer.same_ap_adj[-1]),
             np.concatenate(self.buffer.rnn_states_critic[-1]),
             np.concatenate(self.buffer.masks[-1]),
         )
@@ -271,6 +271,7 @@ class GMPERunner(Runner):
 
     @torch.no_grad()
     def eval(self, total_num_steps: int):
+        raise
         eval_episode_rewards = []
         eval_obs, eval_agent_id, eval_node_obs, eval_adj = self.eval_envs.reset()
 
@@ -357,6 +358,7 @@ class GMPERunner(Runner):
 
     @torch.no_grad()
     def render(self, get_metrics: bool = False):
+        raise
         """
         Visualize the env.
         get_metrics: bool (default=False)

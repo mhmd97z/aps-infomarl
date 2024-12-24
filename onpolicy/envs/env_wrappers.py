@@ -6,7 +6,7 @@ import torch
 from multiprocessing import Process, Pipe
 from abc import ABC, abstractmethod
 from onpolicy.utils.util import tile_images
-
+from torch_geometric.data import Batch
 
 class CloudpickleWrapper(object):
     """
@@ -1109,6 +1109,124 @@ class GraphSubprocVecEnv(ShareVecEnv):
         results = [remote.recv() for remote in self.remotes]
         obs, ag_ids, node_obs, adj = zip(*results)
         return (np.stack(obs), np.stack(ag_ids), np.stack(node_obs), np.stack(adj))
+
+    def reset_task(self):
+        for remote in self.remotes:
+            remote.send(("reset_task", None))
+        return np.stack([remote.recv() for remote in self.remotes])
+
+    def close(self):
+        if self.closed:
+            return
+        if self.waiting:
+            for remote in self.remotes:
+                remote.recv()
+        for remote in self.remotes:
+            remote.send(("close", None))
+        for p in self.ps:
+            p.join()
+        self.closed = True
+
+    def render(self, mode="rgb_array"):
+        for remote in self.remotes:
+            remote.send(("render", mode))
+        if mode == "rgb_array":
+            frame = [remote.recv() for remote in self.remotes]
+            return np.stack(frame)
+
+def apsworker(remote, parent_remote, env_fn_wrapper):
+    """same as worker but for the graph environment"""
+    parent_remote.close()
+    env = env_fn_wrapper.x()
+    while True:
+        cmd, data = remote.recv()
+        if cmd == "step":
+            obs, state, reward, done, info, mask, same_ue, same_ap = env.step(data)
+            remote.send((obs, state, reward, done, info, mask, same_ue, same_ap))
+        elif cmd == "reset":
+            obs, state, mask, info, same_ue, same_ap = env.reset()
+            remote.send((obs, state, mask, info, same_ue, same_ap))
+        elif cmd == "render":
+            raise NotImplementedError
+        elif cmd == "close":
+            env.close()
+            remote.close()
+            break
+        elif cmd == "get_spaces":
+            remote.send(
+                (
+                    env.observation_space,
+                    env.share_observation_space,
+                    env.action_space,
+                )
+            )
+        else:
+            raise NotImplementedError
+
+class ApsSubprocVecEnv(ShareVecEnv):
+    def __init__(self, env_fns, spaces=None):
+        """
+        Same as SubprocVecEnv but for graph environment
+        envs: list of gym environments to run in subprocesses
+        """
+        self.waiting = False
+        self.closed = False
+        nenvs = len(env_fns)
+        self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(nenvs)])
+        self.ps = [
+            Process(
+                target=apsworker,
+                args=(work_remote, remote, CloudpickleWrapper(env_fn)),
+            )
+            for (work_remote, remote, env_fn) in zip(
+                self.work_remotes, self.remotes, env_fns
+            )
+        ]
+        for p in self.ps:
+            p.daemon = (
+                True  # if the main process crashes, we should not cause things to hang
+            )
+            p.start()
+        for remote in self.work_remotes:
+            remote.close()
+
+        self.remotes[0].send(("get_spaces", None))
+        (
+            observation_space,
+            share_observation_space,
+            action_space,
+        ) = self.remotes[0].recv()
+        ShareVecEnv.__init__(
+            self, len(env_fns), observation_space, share_observation_space, action_space
+        )
+
+    def step_async(self, actions):
+        for remote, action in zip(self.remotes, actions):
+            remote.send(("step", action))
+        self.waiting = True
+
+    def step_wait(self):
+        results = [remote.recv() for remote in self.remotes]
+        self.waiting = False
+        obs, states, rewards, dones, infos, mask, same_ue, same_ap = zip(*results)
+        return (
+            np.stack(obs), # , Batch.from_data_list(list(obs)),
+            np.stack(states),
+            np.stack(rewards),
+            np.stack(dones),
+            infos,
+            np.stack(mask),
+            np.stack(same_ue),
+            np.stack(same_ap)
+        )
+
+    def reset(self):
+        for remote in self.remotes:
+            remote.send(("reset", None))
+        results = [remote.recv() for remote in self.remotes]
+        obs, state, mask, info, same_ue, same_ap = zip(*results)
+        return (np.stack(obs), # Batch.from_data_list(list(obs)), 
+                np.stack(state), np.stack(mask), info, np.stack(same_ue), np.stack(same_ap))
 
     def reset_task(self):
         for remote in self.remotes:

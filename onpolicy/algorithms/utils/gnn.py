@@ -7,7 +7,9 @@ import torch_geometric
 import torch_geometric.nn as gnn
 from torch_geometric.data import Data, Batch ##, DataLoader
 from torch_geometric.loader import DataLoader
-from torch_geometric.nn import MessagePassing, TransformerConv,global_mean_pool, global_max_pool, global_add_pool
+from torch_geometric.nn import (
+    MessagePassing, TransformerConv, global_mean_pool, global_max_pool, 
+    global_add_pool, HeteroConv, Linear, LayerNorm)
 from torch_geometric.utils import add_self_loops, to_dense_batch
 
 import argparse
@@ -471,8 +473,6 @@ class TransformerConvNet(nn.Module):
             raise ValueError(f"`aggr` should be one of 'mean', 'max', 'add'")
         
 
-
-
 class GNNBase(nn.Module):
     """
         A Wrapper for constructing the Base graph neural network.
@@ -555,6 +555,7 @@ class GNNBase(nn.Module):
     def forward(self, node_obs:Tensor, adj:Tensor, agent_id:Tensor):
         batch_size, num_nodes, _ = node_obs.shape
         edge_index, edge_attr = TransformerConvNet.process_adj(adj, self.gnn.max_edge_dist)
+        raise
         # print("Outer edge_index", edge_index.shape, "node_obs", node_obs.shape, "edge_attr", edge_attr.shape)
         # Flatten node_obs
         x = node_obs.view(-1, node_obs.size(-1))
@@ -576,3 +577,55 @@ class GNNBase(nn.Module):
     # @property
     # def out_dim(self):
     # 	return self.hidden_size + (self.heads-1)*self.concat*(self.hidden_size)
+class Aps_GNN(nn.Module):
+    def __init__(self, args, input_shape):
+        super(Aps_GNN, self).__init__()
+        self.args = args
+        hc = [32, 32]
+        num_layers = len(hc)
+        heads = 4
+        aggr = 'sum'
+
+        self.convs = nn.ModuleList()
+        self.norms = nn.ModuleList()
+        for i in range(num_layers-1):
+            in_channels = hc[i]
+            out_channels = int(hc[i+1] / heads)
+            conv = HeteroConv({
+                ('channel', 'same_ue', 'channel'):
+                TransformerConv(in_channels, out_channels,
+                                heads=heads, dropout=0.0, root_weight=True, concat=True),
+                ('channel', 'same_ap', 'channel'):
+                TransformerConv(in_channels, out_channels,
+                                heads=heads, dropout=0.0, root_weight=True, concat=True)
+            }, aggr=aggr)
+            self.convs.append(conv)
+            self.norms.append(LayerNorm(hc[i+1]))
+
+        self.lin0 = Linear(input_shape[0], 32)
+        self.lin1 = Linear(sum(hc), 32)
+
+        self.out_dim = 32
+
+    def init_hidden(self):
+        return None
+
+    def forward(self, batch):
+        if hasattr(batch['channel'], 'batch'):
+            channel_batch = batch['channel'].batch
+        else:
+            channel_batch = None
+        x_dict = batch.x_dict
+        edge_index_dict = batch.edge_index_dict
+
+        x_dict['channel'] = self.lin0(x_dict['channel'])
+        embedding = [x_dict['channel']]
+        for conv, norm in zip(self.convs, self.norms):
+            x_dict = conv(x_dict, edge_index_dict)
+            tmp = norm(x_dict['channel'].relu(), channel_batch)
+            x_dict = {'channel': tmp}
+            embedding.append(tmp)
+        embedding = torch.cat(embedding, dim=1)
+        embedding = self.lin1(embedding)
+
+        return embedding

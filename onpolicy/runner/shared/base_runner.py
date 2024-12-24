@@ -8,7 +8,7 @@ import torch
 from tensorboardX import SummaryWriter  # tensorboardX to work with macos
 from onpolicy.utils.shared_buffer import SharedReplayBuffer
 from onpolicy.utils.graph_buffer import GraphReplayBuffer
-
+from onpolicy.utils.aps_graph_buffer import ApsReplayBuffer
 
 def _t2n(x):
     """Convert torch tensor to a numpy array."""
@@ -28,9 +28,6 @@ class Runner(object):
         self.device = config["device"]
         self.num_agents = config["num_agents"]
         # total entites is agents + goals + obstacles
-        self.num_entities = (
-            self.num_agents + self.num_agents + self.all_args.num_obstacles
-        )
         if config.__contains__("render_envs"):
             self.render_envs = config["render_envs"]
 
@@ -78,6 +75,9 @@ class Runner(object):
         if self.all_args.env_name == "GraphMPE":
             from onpolicy.algorithms.graph_mappo import GR_MAPPO as TrainAlgo
             from onpolicy.algorithms.graph_MAPPOPolicy import GR_MAPPOPolicy as Policy
+        elif self.all_args.env_name == "aps":
+            from onpolicy.algorithms.graph_aps_mappo import GR_MAPPO as TrainAlgo
+            from onpolicy.algorithms.graph_aps_MAPPOPolicy import GR_MAPPOPolicy as Policy
         else:
             from onpolicy.algorithms.mappo import R_MAPPO as TrainAlgo
             from onpolicy.algorithms.MAPPOPolicy import R_MAPPOPolicy as Policy
@@ -96,6 +96,14 @@ class Runner(object):
                 share_observation_space,
                 self.envs.node_observation_space[0],
                 self.envs.edge_observation_space[0],
+                self.envs.action_space[0],
+                device=self.device,
+            )
+        elif self.all_args.env_name == "aps":
+            self.policy = Policy(
+                self.all_args,
+                self.envs.observation_space[0],
+                share_observation_space,
                 self.envs.action_space[0],
                 device=self.device,
             )
@@ -127,6 +135,14 @@ class Runner(object):
                 self.envs.agent_id_observation_space[0],
                 self.envs.share_agent_id_observation_space[0],
                 self.envs.adj_observation_space[0],
+                self.envs.action_space[0],
+            )
+        elif self.all_args.env_name == "aps":
+            self.buffer = ApsReplayBuffer(
+                self.all_args,
+                self.num_agents,
+                self.envs.observation_space[0],
+                share_observation_space,
                 self.envs.action_space[0],
             )
         else:

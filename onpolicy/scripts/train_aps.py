@@ -3,35 +3,34 @@ import argparse
 from distutils.util import strtobool
 import wandb
 import socket
+import yaml
 import setproctitle
 import numpy as np
 from pathlib import Path
+from argparse import Namespace
 import torch
+import torch.multiprocessing as mp
 
 import os, sys
 
 sys.path.append(os.path.abspath(os.getcwd()))
-
+sys.path.append("../../")
 from utils.utils import print_args, print_box, connected_to_internet
 from onpolicy.config import get_config
-from multiagent.MPE_env import MPEEnv, GraphMPEEnv
+from onpolicy.envs.aps.aps import Aps
 from onpolicy.envs.env_wrappers import (
     SubprocVecEnv,
     DummyVecEnv,
     GraphSubprocVecEnv,
     GraphDummyVecEnv,
+    ApsSubprocVecEnv
 )
-
-"""Train script for MPEs."""
-
 
 def make_train_env(all_args: argparse.Namespace):
     def get_env_fn(rank: int):
         def init_env():
-            if all_args.env_name == "MPE":
-                env = MPEEnv(all_args)
-            elif all_args.env_name == "GraphMPE":
-                env = GraphMPEEnv(all_args)
+            if all_args.env_name == "aps":
+                env = Aps(all_args.env_args)
             else:
                 print(f"Can not support the {all_args.env_name} environment")
                 raise NotImplementedError
@@ -41,12 +40,12 @@ def make_train_env(all_args: argparse.Namespace):
         return init_env
 
     if all_args.n_rollout_threads == 1:
-        if all_args.env_name == "GraphMPE":
-            return GraphDummyVecEnv([get_env_fn(0)])
+        if all_args.env_name == "aps":
+            raise
         return DummyVecEnv([get_env_fn(0)])
     else:
-        if all_args.env_name == "GraphMPE":
-            return GraphSubprocVecEnv(
+        if all_args.env_name == "aps":
+            return ApsSubprocVecEnv(
                 [get_env_fn(i) for i in range(all_args.n_rollout_threads)]
             )
         return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
@@ -55,10 +54,8 @@ def make_train_env(all_args: argparse.Namespace):
 def make_eval_env(all_args: argparse.Namespace):
     def get_env_fn(rank: int):
         def init_env():
-            if all_args.env_name == "MPE":
-                env = MPEEnv(all_args)
-            elif all_args.env_name == "GraphMPE":
-                env = GraphMPEEnv(all_args)
+            if all_args.env_name == "aps":
+                env = Aps(all_args.env_args)
             else:
                 print(f"Can not support the {all_args.env_name} environment")
                 raise NotImplementedError
@@ -68,85 +65,47 @@ def make_eval_env(all_args: argparse.Namespace):
         return init_env
 
     if all_args.n_eval_rollout_threads == 1:
-        if all_args.env_name == "GraphMPE":
-            return GraphDummyVecEnv([get_env_fn(0)])
+        if all_args.env_name == "aps":
+            raise
         return DummyVecEnv([get_env_fn(0)])
     else:
-        if all_args.env_name == "GraphMPE":
-            return GraphSubprocVecEnv(
-                [get_env_fn(i) for i in range(all_args.n_rollout_threads)]
+        if all_args.env_name == "aps":
+            return ApsSubprocVecEnv(
+                [get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)]
             )
         return SubprocVecEnv(
             [get_env_fn(i) for i in range(all_args.n_eval_rollout_threads)]
         )
 
+def merge_namespaces(namespace, yaml_namespace):
+    for key, value in vars(yaml_namespace).items():
+        if isinstance(value, Namespace):
+            if hasattr(namespace, key):
+                merge_namespaces(getattr(namespace, key), value)
+            else:
+                setattr(namespace, key, value)
+        else:
+            setattr(namespace, key, value)
 
 def parse_args(args, parser):
-    parser.add_argument(
-        "--scenario_name",
-        type=str,
-        default="simple_spread",
-        help="Which scenario to run on",
-    )
-    parser.add_argument("--num_landmarks", type=int, default=3)
-    parser.add_argument("--num_agents", type=int, default=2, help="number of players")
-    parser.add_argument(
-        "--num_obstacles", type=int, default=3, help="Number of obstacles"
-    )
-    parser.add_argument(
-        "--collaborative",
-        type=lambda x: bool(strtobool(x)),
-        default=True,
-        help="Number of agents in the env",
-    )
-    parser.add_argument(
-        "--max_speed",
-        type=float,
-        default=2,
-        help="Max speed for agents. NOTE that if this is None, "
-        "then max_speed is 2 with discrete action space",
-    )
-    parser.add_argument(
-        "--collision_rew",
-        type=float,
-        default=5,
-        help="The reward to be negated for collisions with other "
-        "agents and obstacles",
-    )
-    parser.add_argument(
-        "--goal_rew",
-        type=float,
-        default=5,
-        help="The reward to be added if agent reaches the goal",
-    )
-    parser.add_argument(
-        "--min_dist_thresh",
-        type=float,
-        default=0.05,
-        help="The minimum distance threshold to classify whether "
-        "agent has reached the goal or not",
-    )
-    parser.add_argument(
-        "--use_dones",
-        type=lambda x: bool(strtobool(x)),
-        default=False,
-        help="Whether we want to use the 'done=True' "
-        "when agent has reached the goal or just return False like "
-        "the `simple.py` or `simple_spread.py`",
-    )
-
+    parser.add_argument("--num_agents", type=int, default=3)
     all_args = parser.parse_known_args(args)[0]
-
     return all_args, parser
 
 
 def main(args):
     parser = get_config()
-    all_args, parser = parse_args(args, parser)
-    if all_args.env_name == "GraphMPE":
-        from onpolicy.config import graph_config
-
-        all_args, parser = graph_config(args, parser)
+    all_args = parser.parse_known_args(args)[0]
+    
+    yaml_path = "/home/mzi/aps-infomarl/onpolicy/aps-config.yaml"
+    with open(yaml_path, 'r') as file:
+        yaml_config = yaml.safe_load(file)
+        def yaml_to_namespace(config):
+            if isinstance(config, dict):
+                return Namespace(**{key: yaml_to_namespace(value) for key, value in config.items()})
+            return config
+        yaml_namespace = yaml_to_namespace(yaml_config)
+        merge_namespaces(all_args, yaml_namespace)
 
     if all_args.algorithm_name in ["rmappo"]:
         assert (
@@ -159,14 +118,6 @@ def main(args):
         ), "check recurrent policy!"
     else:
         raise NotImplementedError
-
-    assert (
-        all_args.share_policy == True
-        and all_args.scenario_name == "simple_speaker_listener"
-    ) == False, (
-        "The simple_speaker_listener scenario can not use shared policy. "
-        "Please check the config.py."
-    )
 
     # cuda
     if all_args.cuda and torch.cuda.is_available():
@@ -181,20 +132,20 @@ def main(args):
         device = torch.device("cpu")
         torch.set_num_threads(all_args.n_training_threads)
 
-    if all_args.verbose:
-        print_args(all_args)
+    # if all_args.verbose:
+    print_args(all_args)
 
     # run dir
     run_dir = (
         Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + "/results")
         / all_args.env_name
-        / all_args.scenario_name
         / all_args.algorithm_name
         / all_args.experiment_name
     )
     if not run_dir.exists():
         os.makedirs(str(run_dir))
 
+    all_args.use_wandb = False    
     # wandb
     if all_args.use_wandb:
         # for supercloud when no internet_connection
@@ -264,7 +215,7 @@ def main(args):
     # env init
     envs = make_train_env(all_args)
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
-    num_agents = all_args.num_agents
+    num_agents = all_args.env_args.simulation_scenario.number_of_aps * all_args.env_args.simulation_scenario.number_of_ues
 
     config = {
         "all_args": all_args,
@@ -277,26 +228,24 @@ def main(args):
 
     # run experiments
     if all_args.share_policy:
-        if all_args.env_name == "GraphMPE":
-            from onpolicy.runner.shared.graph_mpe_runner import GMPERunner as Runner
+        if all_args.env_name == "aps":
+            from onpolicy.runner.shared.aps_runner import ApsRunner as Runner
         else:
-            from onpolicy.runner.shared.mpe_runner import MPERunner as Runner
+            raise
     else:
-        if all_args.env_name == "GraphMPE":
-            raise NotImplementedError
-        from onpolicy.runner.separated.mpe_runner import MPERunner as Runner
+        raise NotImplementedError
 
     runner = Runner(config)
-    if all_args.verbose:
-        print_box("Actor Network", 80)
-        if type(runner.policy) == list:
-            print_box(runner.policy[0].actor, 80)
-            print_box("Critic Network", 80)
-            print_box(runner.policy[0].critic, 80)
-        else:
-            print_box(runner.policy.actor, 80)
-            print_box("Critic Network", 80)
-            print_box(runner.policy.critic, 80)
+    # if all_args.verbose:
+    #     print_box("Actor Network", 80)
+    #     if type(runner.policy) == list:
+    #         print_box(runner.policy[0].actor, 80)
+    #         print_box("Critic Network", 80)
+    #         print_box(runner.policy[0].critic, 80)
+    #     else:
+    #         print_box(runner.policy.actor, 80)
+    #         print_box("Critic Network", 80)
+    #         print_box(runner.policy.critic, 80)
     runner.run()
 
     # post process
@@ -312,4 +261,8 @@ def main(args):
 
 
 if __name__ == "__main__":
+    if mp.get_start_method(allow_none=True) != 'spawn':
+        mp.set_start_method('spawn', force=True)
+
+
     main(sys.argv[1:])
