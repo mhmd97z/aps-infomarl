@@ -602,7 +602,7 @@ class Aps_GNN(nn.Module):
             self.convs.append(conv)
             self.norms.append(LayerNorm(hc[i+1]))
 
-        self.lin0 = Linear(input_shape[0], 32)
+        self.lin0 = Linear(2, 32)
         self.lin1 = Linear(sum(hc), 32)
 
         self.out_dim = 32
@@ -617,6 +617,8 @@ class Aps_GNN(nn.Module):
             channel_batch = None
         x_dict = batch.x_dict
         edge_index_dict = batch.edge_index_dict
+        
+        sampler = getattr(batch, "sampler", None)
 
         x_dict['channel'] = self.lin0(x_dict['channel'])
         embedding = [x_dict['channel']]
@@ -627,5 +629,8 @@ class Aps_GNN(nn.Module):
             embedding.append(tmp)
         embedding = torch.cat(embedding, dim=1)
         embedding = self.lin1(embedding)
+
+        if sampler is not None:
+            embedding = embedding[sampler[0]].clone()
 
         return embedding

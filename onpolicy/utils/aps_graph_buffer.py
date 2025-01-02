@@ -5,6 +5,7 @@ import numpy as np
 from numpy import ndarray as arr
 from typing import Optional, Tuple, Generator
 from onpolicy.algorithms.utils.popart import PopArt
+from onpolicy.utils.graph_batch_storage import GraphBatchStorage
 from onpolicy.utils.util import get_shape_from_obs_space, get_shape_from_act_space
 
 
@@ -64,31 +65,8 @@ class ApsReplayBuffer(object):
         if type(share_obs_shape[-1]) == list:
             share_obs_shape = share_obs_shape[:1]
 
-        self.share_obs = np.zeros(
-            (
-                self.episode_length + 1,
-                self.n_rollout_threads,
-                num_agents,
-                *share_obs_shape,
-            ),
-            dtype=np.float32,
-        )
-        self.obs = np.zeros(
-            (self.episode_length + 1, self.n_rollout_threads, num_agents, *obs_shape),
-            dtype=np.float32,
-        )
-        # graph related stuff 
-        self.same_ap_adj = np.zeros(
-            (self.episode_length + 1, self.n_rollout_threads, 2,
-             num_agents * (args.env_args.simulation_scenario.max_serving_ue_count-1)
-             ),
-            dtype=np.int32,
-        )
-        self.same_ue_adj = np.zeros(
-            (self.episode_length + 1, self.n_rollout_threads, 2,
-             num_agents * (args.env_args.simulation_scenario.max_measurment_ap_count-1)),
-            dtype=np.int32,
-        )
+        self.graph_storage = GraphBatchStorage(T=self.episode_length + 1,
+                                               B=self.n_rollout_threads)
         self.agent_id = np.zeros(
             (
                 self.episode_length + 1,
@@ -151,15 +129,12 @@ class ApsReplayBuffer(object):
         )
         self.active_masks = np.ones_like(self.masks)
         self.bad_masks = np.ones_like(self.masks)
-        
+
         self.step = 0
 
     def insert(
         self,
-        share_obs: arr,
-        obs: arr,
-        same_ue_adj: arr,
-        same_ap_adj: arr,
+        batch,
         agent_id: arr,
         rnn_states_actor: arr,
         rnn_states_critic: arr,
@@ -209,10 +184,7 @@ class ApsReplayBuffer(object):
             actions available to each agent.
             If None, all actions are available.
         """
-        self.share_obs[self.step + 1] = share_obs.copy()
-        self.obs[self.step + 1] = obs.copy()
-        self.same_ue_adj[self.step + 1] = same_ue_adj.copy()
-        self.same_ap_adj[self.step + 1] = same_ap_adj.copy()
+        self.graph_storage.set_graph(self.step + 1, batch)
         self.agent_id[self.step + 1] = agent_id.copy()
         self.rnn_states[self.step + 1] = rnn_states_actor.copy()
         self.rnn_states_critic[self.step + 1] = rnn_states_critic.copy()
@@ -230,10 +202,7 @@ class ApsReplayBuffer(object):
 
     def after_update(self) -> None:
         """Copy last timestep data to first index. Called after update to model."""
-        self.share_obs[0] = self.share_obs[-1].copy()
-        self.obs[0] = self.obs[-1].copy()
-        self.same_ue_adj[0] = self.same_ue_adj[-1].copy()
-        self.same_ap_adj[0] = self.same_ap_adj[-1].copy()
+        self.graph_storage.set_graph(0, self.graph_storage[-1])
         self.agent_id[0] = self.agent_id[-1].copy()
         self.rnn_states[0] = self.rnn_states[-1].copy()
         self.rnn_states_critic[0] = self.rnn_states_critic[-1].copy()
@@ -403,10 +372,9 @@ class ApsReplayBuffer(object):
             for i in range(num_mini_batch)
         ]
 
-        share_obs = self.share_obs[:-1].reshape(-1, *self.share_obs.shape[3:])
-        obs = self.obs[:-1].reshape(-1, *self.obs.shape[3:])
-        same_ap_adj = self.same_ap_adj[:-1].reshape(-1, *self.same_ap_adj.shape[2:])
-        same_ue_adj = self.same_ue_adj[:-1].reshape(-1, *self.same_ue_adj.shape[2:])
+        all_graphs = self.graph_storage.merge_all_graphs()
+        all_graphs.sampler = sampler
+
         agent_id = self.agent_id[:-1].reshape(-1, *self.agent_id.shape[3:])
         rnn_states = self.rnn_states[:-1].reshape(-1, *self.rnn_states.shape[3:])
         rnn_states_critic = self.rnn_states_critic[:-1].reshape(
@@ -426,14 +394,8 @@ class ApsReplayBuffer(object):
         )
         advantages = advantages.reshape(-1, 1)
 
-        print("share_obs: ", share_obs.shape)
-        print("same_ap_adj: ", same_ap_adj.shape)
         for indices in sampler:
             # obs size [T+1 N M Dim]-->[T N M Dim]-->[T*N*M,Dim]-->[index,Dim]
-            share_obs_batch = share_obs[indices]
-            obs_batch = obs[indices]
-            same_ue_adj_batch = same_ue_adj[indices]
-            same_ap_adj_batch = same_ap_adj[indices]
             agent_id_batch = agent_id[indices]
             rnn_states_batch = rnn_states[indices]
             rnn_states_critic_batch = rnn_states_critic[indices]
@@ -452,7 +414,7 @@ class ApsReplayBuffer(object):
             else:
                 adv_targ = advantages[indices]
 
-            yield share_obs_batch, obs_batch, same_ue_adj_batch, same_ap_adj_batch, agent_id_batch, share_agent_id_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch
+            yield all_graphs, agent_id_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch
 
     def naive_recurrent_generator(
         self, advantages: arr, num_mini_batch: int

@@ -102,11 +102,7 @@ class GR_MAPPOPolicy:
 
     def get_actions(
         self,
-        cent_obs,
-        obs,
-        same_ue_adj,
-        same_ap_adj,
-        agent_id,
+        batch,
         rnn_states_actor,
         rnn_states_critic,
         masks,
@@ -115,18 +111,6 @@ class GR_MAPPOPolicy:
     ) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         """
         Compute actions and value function predictions for the given inputs.
-        cent_obs (np.ndarray):
-            Centralized input to the critic.
-        obs (np.ndarray):
-            Local agent inputs to the actor.
-        node_obs (np.ndarray):
-            Local agent graph node features to the actor.
-        adj (np.ndarray):
-            Adjacency matrix for the graph.
-        agent_id (np.ndarray):
-            Agent id to which observations belong to.
-        share_agent_id (np.ndarray):
-            Agent id to which cent_observations belong to.
         rnn_states_actor: (np.ndarray)
             If actor is RNN, RNN states for actor.
         rnn_states_critic: (np.ndarray)
@@ -152,10 +136,7 @@ class GR_MAPPOPolicy:
             updated critic network RNN states.
         """
         actions, action_log_probs, rnn_states_actor = self.actor.forward(
-            obs,
-            agent_id,
-            same_ue_adj,
-            same_ap_adj,
+            batch,
             rnn_states_actor,
             masks,
             available_actions,
@@ -163,23 +144,15 @@ class GR_MAPPOPolicy:
         )
 
         values, rnn_states_critic = self.critic.forward(
-            cent_obs, agent_id, same_ue_adj, same_ap_adj, rnn_states_critic, masks
+            batch, rnn_states_critic, masks
         )
         return (values, actions, action_log_probs, rnn_states_actor, rnn_states_critic)
 
     def get_values(
-        self, cent_obs, agent_id, same_ue_adj, same_ap_adj, rnn_states_critic, masks
+        self, graph_batch, rnn_states_critic, masks
     ) -> Tensor:
         """
         Get value function predictions.
-        cent_obs (np.ndarray):
-            centralized input to the critic.
-        node_obs (np.ndarray):
-            Local agent graph node features to the actor.
-        adj (np.ndarray):
-            Adjacency matrix for the graph.
-        share_agent_id (np.ndarray):
-            Agent id to which cent_observations belong to.
         rnn_states_critic: (np.ndarray)
             if critic is RNN, RNN states for critic.
         masks: (np.ndarray)
@@ -188,16 +161,13 @@ class GR_MAPPOPolicy:
         :return values: (torch.Tensor) value function predictions.
         """
         values, _ = self.critic.forward(
-            cent_obs, agent_id, same_ue_adj, same_ap_adj, rnn_states_critic, masks
+            graph_batch, rnn_states_critic, masks
         )
         return values
 
     def evaluate_actions(
         self,
-        cent_obs,
-        obs,
-        same_ue_adj,
-        same_ap_adj,
+        graph_batch,
         agent_id,
         rnn_states_actor,
         rnn_states_critic,
@@ -209,18 +179,6 @@ class GR_MAPPOPolicy:
         """
         Get action logprobs / entropy and
         value function predictions for actor update.
-        cent_obs (np.ndarray):
-            centralized input to the critic.
-        obs (np.ndarray):
-            local agent inputs to the actor.
-        node_obs (np.ndarray):
-            Local agent graph node features to the actor.
-        adj (np.ndarray):
-            Adjacency matrix for the graph.
-        agent_id (np.ndarray):
-            Agent id for observations
-        share_agent_id (np.ndarray):
-            Agent id for shared observations
         rnn_states_actor: (np.ndarray)
             if actor is RNN, RNN states for actor.
         rnn_states_critic: (np.ndarray)
@@ -243,10 +201,7 @@ class GR_MAPPOPolicy:
             action distribution entropy for the given inputs.
         """
         action_log_probs, dist_entropy = self.actor.evaluate_actions(
-            obs,
-            agent_id,
-            same_ue_adj,
-            same_ap_adj,
+            graph_batch,
             rnn_states_actor,
             action,
             masks,
@@ -255,8 +210,8 @@ class GR_MAPPOPolicy:
         )
 
         values, _ = self.critic.forward(
-            cent_obs, agent_id, same_ue_adj, same_ap_adj, rnn_states_critic, masks
-        )
+            graph_batch, rnn_states_critic, masks
+        )        
         return values, action_log_probs, dist_entropy
 
     def act(
@@ -291,6 +246,7 @@ class GR_MAPPOPolicy:
             whether the action should be mode of
             distribution or should be sampled.
         """
+        raise 
         actions, _, rnn_states_actor = self.actor.forward(
             obs,
             agent_id,

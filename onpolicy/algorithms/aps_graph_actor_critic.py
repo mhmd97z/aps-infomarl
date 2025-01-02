@@ -23,11 +23,6 @@ def generate_graph_batch(obs, same_ap_adj, same_ue_adj, agent_id):
     obs = obs.reshape((n_envs, -1, obs.shape[-1]))
     agent_id = agent_id.reshape((n_envs, -1, 1))
 
-    # print("obs: ", obs.shape)
-    # print("same_ap_adj: ", same_ap_adj.shape)
-    # print("same_ue_adj: ", same_ue_adj.shape)
-    # print("agent_id: ", agent_id.shape)
-
     graphs_list = []
     for i in range(n_envs):
         data = HeteroData()
@@ -104,8 +99,9 @@ class Aps_GR_Actor(nn.Module):
         
         self.gnn_base = Aps_GNN(args, obs_shape)
         gnn_out_dim = self.gnn_base.out_dim  # output shape from gnns
-        mlp_base_in_dim = gnn_out_dim + obs_shape[0]
-        self.base = MLPBase(args, obs_shape=None, override_obs_dim=mlp_base_in_dim)
+        # mlp_base_in_dim = gnn_out_dim + obs_shape[0]
+        # self.base = MLPBase(args, obs_shape=None, override_obs_dim=mlp_base_in_dim)
+        self.base = MLPBase(args, obs_shape=gnn_out_dim, override_obs_dim=None)
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             self.rnn = RNNLayer(
@@ -123,10 +119,7 @@ class Aps_GR_Actor(nn.Module):
 
     def forward(
         self,
-        obs,
-        agent_id,
-        same_ue_adj,
-        same_ap_adj,
+        graph_batch,
         rnn_states,
         masks,
         available_actions=None,
@@ -134,14 +127,6 @@ class Aps_GR_Actor(nn.Module):
     ) -> Tuple[Tensor, Tensor, Tensor]:
         """
         Compute actions from the given inputs.
-        obs: (np.ndarray / torch.Tensor)
-            Observation inputs into network.
-        node_obs (np.ndarray / torch.Tensor):
-            Local agent graph node features to the actor.
-        adj (np.ndarray / torch.Tensor):
-            Adjacency matrix for the graph
-        agent_id (np.ndarray / torch.Tensor)
-            The agent id to which the observation belongs to
         rnn_states: (np.ndarray / torch.Tensor)
             If RNN network, hidden states for RNN.
         masks: (np.ndarray / torch.Tensor)
@@ -160,40 +145,13 @@ class Aps_GR_Actor(nn.Module):
         :return rnn_states: (torch.Tensor)
             Updated RNN hidden states.
         """
-        obs = check(obs).to(**self.tpdv)
-        same_ue_adj = check(same_ue_adj).to(**self.tpdv).long()
-        same_ap_adj = check(same_ap_adj).to(**self.tpdv).long()
         rnn_states = check(rnn_states).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
         if available_actions is not None:
             available_actions = check(available_actions).to(**self.tpdv)
         
-        graph_batch = generate_graph_batch(obs, same_ue_adj, same_ap_adj, agent_id)
-
-        # # if batch size is big, split into smaller batches, forward pass and then concatenate
-        # if (self.split_batch) and (obs.shape[0] > self.max_batch_size):
-        #     # print(f'Actor obs: {obs.shape[0]}')
-        #     batchGenerator = minibatchGenerator(
-        #         obs, node_obs, adj, agent_id, self.max_batch_size
-        #     )
-        #     actor_features = []
-        #     for batch in batchGenerator:
-        #         obs_batch, node_obs_batch, adj_batch, agent_id_batch = batch
-        #         nbd_feats_batch = self.gnn_base(
-        #             node_obs_batch, adj_batch, agent_id_batch
-        #         )
-        #         act_feats_batch = torch.cat([obs_batch, nbd_feats_batch], dim=1)
-        #         actor_feats_batch = self.base(act_feats_batch)
-        #         actor_features.append(actor_feats_batch)
-        #     actor_features = torch.cat(actor_features, dim=0)
-        # else:
-        nbd_features = self.gnn_base(graph_batch)
-        actor_features = torch.cat([obs, nbd_features], dim=1)
+        actor_features = self.gnn_base(graph_batch)
         actor_features = self.base(actor_features)
-
-        if self._use_naive_recurrent_policy or self._use_recurrent_policy:
-            print("rnn too!")
-            actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
 
         actions, action_log_probs = self.act(
             actor_features, available_actions, deterministic
@@ -203,10 +161,7 @@ class Aps_GR_Actor(nn.Module):
 
     def evaluate_actions(
         self,
-        obs,
-        node_obs,
-        adj,
-        agent_id,
+        graph_batch,
         rnn_states,
         action,
         masks,
@@ -215,16 +170,6 @@ class Aps_GR_Actor(nn.Module):
     ) -> Tuple[Tensor, Tensor]:
         """
         Compute log probability and entropy of given actions.
-        obs: (torch.Tensor)
-            Observation inputs into network.
-        node_obs (torch.Tensor):
-            Local agent graph node features to the actor.
-        adj (torch.Tensor):
-            Adjacency matrix for the graph.
-        agent_id (np.ndarray / torch.Tensor)
-            The agent id to which the observation belongs to
-        action: (torch.Tensor)
-            Actions whose entropy and log probability to evaluate.
         rnn_states: (torch.Tensor)
             If RNN network, hidden states for RNN.
         masks: (torch.Tensor)
@@ -241,10 +186,6 @@ class Aps_GR_Actor(nn.Module):
         :return dist_entropy: (torch.Tensor)
             Action distribution entropy for the given inputs.
         """
-        obs = check(obs).to(**self.tpdv)
-        node_obs = check(node_obs).to(**self.tpdv)
-        adj = check(adj).to(**self.tpdv)
-        agent_id = check(agent_id).to(**self.tpdv)
         rnn_states = check(rnn_states).to(**self.tpdv)
         action = check(action).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
@@ -254,26 +195,8 @@ class Aps_GR_Actor(nn.Module):
         if active_masks is not None:
             active_masks = check(active_masks).to(**self.tpdv)
 
-        # if batch size is big, split into smaller batches, forward pass and then concatenate
-        if (self.split_batch) and (obs.shape[0] > self.max_batch_size):
-            # print(f'eval Actor obs: {obs.shape[0]}')
-            batchGenerator = minibatchGenerator(
-                obs, node_obs, adj, agent_id, self.max_batch_size
-            )
-            actor_features = []
-            for batch in batchGenerator:
-                obs_batch, node_obs_batch, adj_batch, agent_id_batch = batch
-                nbd_feats_batch = self.gnn_base(
-                    node_obs_batch, adj_batch, agent_id_batch
-                )
-                act_feats_batch = torch.cat([obs_batch, nbd_feats_batch], dim=1)
-                actor_feats_batch = self.base(act_feats_batch)
-                actor_features.append(actor_feats_batch)
-            actor_features = torch.cat(actor_features, dim=0)
-        else:
-            nbd_features = self.gnn_base(node_obs, adj, agent_id)
-            actor_features = torch.cat([obs, nbd_features], dim=1)
-            actor_features = self.base(actor_features)
+        actor_features = self.gnn_base(graph_batch)
+        actor_features = self.base(actor_features)
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             actor_features, rnn_states = self.rnn(actor_features, rnn_states, masks)
@@ -343,7 +266,7 @@ class Aps_GR_Critic(nn.Module):
         #     gnn_out_dim *= args.num_agents
         mlp_base_in_dim = gnn_out_dim
         # if self.args.use_cent_obs:
-        mlp_base_in_dim += cent_obs_shape[0]
+        # mlp_base_in_dim += cent_obs_shape[0]
 
         self.base = MLPBase(args, cent_obs_shape, override_obs_dim=mlp_base_in_dim)
 
@@ -366,18 +289,12 @@ class Aps_GR_Critic(nn.Module):
         self.to(device)
 
     def forward(
-        self, cent_obs, agent_id, same_ue_adj, same_ap_adj, rnn_states_critic, masks
+        self, graph_batch, rnn_states_critic, masks
     ) -> Tuple[Tensor, Tensor]:
         """
         Compute actions from the given inputs.
         cent_obs: (np.ndarray / torch.Tensor)
             Observation inputs into network.
-        node_obs (np.ndarray):
-            Local agent graph node features to the actor.
-        adj (np.ndarray):
-            Adjacency matrix for the graph.
-        agent_id (np.ndarray / torch.Tensor)
-            The agent id to which the observation belongs to
         rnn_states: (np.ndarray / torch.Tensor)
             If RNN network, hidden states for RNN.
         masks: (np.ndarray / torch.Tensor)
@@ -387,42 +304,10 @@ class Aps_GR_Critic(nn.Module):
         :return values: (torch.Tensor) value function predictions.
         :return rnn_states: (torch.Tensor) updated RNN hidden states.
         """
-        cent_obs = check(cent_obs).to(**self.tpdv)
-        same_ue_adj = check(same_ue_adj).to(**self.tpdv).long()
-        same_ap_adj = check(same_ap_adj).to(**self.tpdv).long()
-        agent_id = check(agent_id).to(**self.tpdv).long()
         rnn_states_critic = check(rnn_states_critic).to(**self.tpdv)
         masks = check(masks).to(**self.tpdv)
 
-        # # if batch size is big, split into smaller batches, forward pass and then concatenate
-        # if (self.split_batch) and (cent_obs.shape[0] > self.max_batch_size):
-        #     # print(f'Cent obs: {cent_obs.shape[0]}')
-        #     batchGenerator = minibatchGenerator(
-        #         cent_obs, node_obs, adj, agent_id, self.max_batch_size
-        #     )
-        #     critic_features = []
-        #     for batch in batchGenerator:
-        #         obs_batch, node_obs_batch, adj_batch, agent_id_batch = batch
-        #         nbd_feats_batch = self.gnn_base(
-        #             node_obs_batch, adj_batch, agent_id_batch
-        #         )
-        #         act_feats_batch = torch.cat([obs_batch, nbd_feats_batch], dim=1)
-        #         critic_feats_batch = self.base(act_feats_batch)
-        #         critic_features.append(critic_feats_batch)
-        #     critic_features = torch.cat(critic_features, dim=0)
-        # else:
-
-        graph_batch = generate_graph_batch(cent_obs, same_ue_adj, same_ap_adj, agent_id)
-
-        nbd_features = self.gnn_base(
-            graph_batch
-        )  # CHECK from where are these agent_ids coming
-        # if self.args.use_cent_obs:
-        critic_features = torch.cat(
-            [cent_obs, nbd_features], dim=1
-        )  # NOTE can remove concatenation with cent_obs and just use graph_feats
-        # else:
-        #     critic_features = nbd_features
+        critic_features = self.gnn_base(graph_batch)
         critic_features = self.base(critic_features)  # Cent obs here
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:

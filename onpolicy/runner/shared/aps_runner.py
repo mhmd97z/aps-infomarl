@@ -6,6 +6,7 @@ import torch
 from onpolicy.runner.shared.base_runner import Runner
 import wandb
 import imageio
+from torch_geometric.data import HeteroData, Batch
 
 
 def _t2n(x):
@@ -19,17 +20,12 @@ def generate_graph_batch(obs, same_ap_adj, same_ue_adj, agent_id):
     obs = obs.reshape((n_envs, -1, obs.shape[-1]))
     agent_id = agent_id.reshape((n_envs, -1, 1))
 
-    # print("obs: ", obs.shape)
-    # print("same_ap_adj: ", same_ap_adj.shape)
-    # print("same_ue_adj: ", same_ue_adj.shape)
-    # print("agent_id: ", agent_id.shape)
-
     graphs_list = []
     for i in range(n_envs):
         data = HeteroData()
-        data['channel'].x = obs[i]
-        data['channel', 'same_ue', 'channel'].edge_index = same_ue_adj[i]
-        data['channel', 'same_ap', 'channel'].edge_index = same_ap_adj[i]
+        data['channel'].x = torch.tensor(obs[i]).to(device="cuda:0")
+        data['channel', 'same_ue', 'channel'].edge_index = torch.tensor(same_ue_adj[i]).to(device="cuda:0")
+        data['channel', 'same_ap', 'channel'].edge_index = torch.tensor(same_ap_adj[i]).to(device="cuda:0")
         graphs_list.append(data)
 
     return Batch.from_data_list(graphs_list)
@@ -57,7 +53,9 @@ class ApsRunner(Runner):
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
 
+            print(f"\nsampling episode: {episode}")
             for step in range(self.episode_length):
+                print(f"taking episode step: {step}")
                 # Sample actions
                 (
                     values,
@@ -74,12 +72,11 @@ class ApsRunner(Runner):
                 )
                 agent_id = torch.arange(states.shape[1]).unsqueeze(1).repeat(1, states.shape[0]).T.unsqueeze(2).numpy()
 
+                batch = generate_graph_batch(obs, same_ap, same_ue, agent_id)
+
                 data = (
-                    obs,
-                    states,
+                    batch,
                     agent_id,
-                    same_ue,
-                    same_ap,
                     rewards,
                     dones,
                     infos,
@@ -110,8 +107,6 @@ class ApsRunner(Runner):
             if episode % self.log_interval == 0:
                 end = time.time()
 
-                env_infos = self.process_infos(infos)
-
                 avg_ep_rew = np.mean(self.buffer.rewards) * self.episode_length
                 train_infos["average_episode_rewards"] = avg_ep_rew
                 print(
@@ -120,7 +115,7 @@ class ApsRunner(Runner):
                     f"Percentage complete {total_num_steps / self.num_env_steps * 100:.3f}"
                 )
                 self.log_train(train_infos, total_num_steps)
-                self.log_env(env_infos, total_num_steps)
+                self.log_env(infos, total_num_steps)
 
             # eval
             if episode % self.eval_interval == 0 and self.use_eval:
@@ -130,34 +125,11 @@ class ApsRunner(Runner):
         # reset env
         obs, state, mask, info, same_ue, same_ap = self.envs.reset()
         agent_id = torch.arange(state.shape[1]).unsqueeze(1).repeat(1, state.shape[0]).T.unsqueeze(2).numpy()
-
-        # replay buffer
-        if self.use_centralized_V:
-            # (n_rollout_threads, n_agents, feats) -> (n_rollout_threads, n_agents*feats)
-            share_obs = obs.reshape(self.n_rollout_threads, -1)
-            # (n_rollout_threads, n_agents*feats) -> (n_rollout_threads, n_agents, n_agents*feats)
-            share_obs = np.expand_dims(share_obs, 1).repeat(self.num_agents, axis=1)
-            # (n_rollout_threads, n_agents, 1) -> (n_rollout_threads, n_agents*1)
-            share_agent_id = agent_id.reshape(self.n_rollout_threads, -1)
-            # (n_rollout_threads, n_agents*1) -> (n_rollout_threads, n_agents, n_agents*1)
-            share_agent_id = np.expand_dims(share_agent_id, 1).repeat(
-                self.num_agents, axis=1
-            )
-        else:
-            share_obs = obs
-            share_agent_id = agent_id
-
-        self.buffer.share_obs[0] = share_obs.copy()
-        self.buffer.obs[0] = obs.copy()
-        # self.buffer.node_obs[0] = node_obs.copy()
-        # self.buffer.adj[0] = adj.copy()
-        self.buffer.agent_id[0] = agent_id.copy()
-        self.buffer.same_ue_adj[0] = same_ue.copy()
-        self.buffer.same_ap_adj[0] = same_ap.copy()
-
+        batch = generate_graph_batch(obs, same_ap, same_ue, agent_id)
+        self.buffer.graph_storage.set_graph(0, batch)
+        
     @torch.no_grad()
     def collect(self, step: int) -> Tuple[arr, arr, arr, arr, arr, arr]:
-        print("collect is called")
         self.trainer.prep_rollout()
         (
             value,
@@ -166,11 +138,7 @@ class ApsRunner(Runner):
             rnn_states,
             rnn_states_critic,
         ) = self.trainer.policy.get_actions(
-            np.concatenate(self.buffer.share_obs[step]),
-            np.concatenate(self.buffer.obs[step]),
-            np.concatenate(self.buffer.same_ue_adj[step]),
-            np.concatenate(self.buffer.same_ap_adj[step]),
-            np.concatenate(self.buffer.agent_id[step]),
+            self.buffer.graph_storage[step],
             np.concatenate(self.buffer.rnn_states[step]),
             np.concatenate(self.buffer.rnn_states_critic[step]),
             np.concatenate(self.buffer.masks[step]),
@@ -185,20 +153,6 @@ class ApsRunner(Runner):
         rnn_states_critic = np.array(
             np.split(_t2n(rnn_states_critic), self.n_rollout_threads)
         )
-        # # rearrange action
-        # if self.envs.action_space[0].__class__.__name__ == "MultiDiscrete":
-        #     for i in range(self.envs.action_space[0].shape):
-        #         uc_actions_env = np.eye(self.envs.action_space[0].high[i] + 1)[
-        #             actions[:, :, i]
-        #         ]
-        #         if i == 0:
-        #             actions_env = uc_actions_env
-        #         else:
-        #             actions_env = np.concatenate((actions_env, uc_actions_env), axis=2)
-        # elif self.envs.action_space[0].__class__.__name__ == "Discrete":
-        #     actions_env = np.squeeze(np.eye(self.envs.action_space[0].n)[actions], 2)
-        # else:
-        #     raise NotImplementedError
 
         actions_env = actions.copy()
 
@@ -213,11 +167,8 @@ class ApsRunner(Runner):
 
     def insert(self, data):
         (
-            obs,
-            states,
+            batch,
             agent_id,
-            same_ue,
-            same_ap,
             rewards,
             dones,
             infos,
@@ -240,10 +191,7 @@ class ApsRunner(Runner):
         masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
         self.buffer.insert(
-            states,
-            obs,
-            same_ue,
-            same_ap,
+            batch,
             agent_id,
             rnn_states,
             rnn_states_critic,
@@ -259,10 +207,7 @@ class ApsRunner(Runner):
         """Calculate returns for the collected data."""
         self.trainer.prep_rollout()
         next_values = self.trainer.policy.get_values(
-            np.concatenate(self.buffer.share_obs[-1]),
-            np.concatenate(self.buffer.agent_id[-1]),
-            np.concatenate(self.buffer.same_ue_adj[-1]),
-            np.concatenate(self.buffer.same_ap_adj[-1]),
+            self.buffer.graph_storage[-1],
             np.concatenate(self.buffer.rnn_states_critic[-1]),
             np.concatenate(self.buffer.masks[-1]),
         )
@@ -484,3 +429,17 @@ class ApsRunner(Runner):
                     all_frames,
                     duration=self.all_args.ifi,
                 )
+
+    def log_env(self, env_infos, total_num_steps, prefix=""):
+        """
+        Log env info.
+        :param env_infos: (dict) information about env state.
+        :param total_num_steps: (int) total number of training env steps.
+        """
+        info_keys = env_infos[0].keys()
+        for k in info_keys:
+            v = []
+            for info in env_infos:
+                v.append(info[k])
+            v = torch.stack(v)
+            self.writter.add_scalars(k, {k: v.mean()}, total_num_steps)

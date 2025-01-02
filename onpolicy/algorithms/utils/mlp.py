@@ -63,7 +63,7 @@ class MLPBase(nn.Module):
 
         # override_obs_dim is only used for graph-based models
         if override_obs_dim is None:
-            obs_dim = obs_shape[0]
+            obs_dim = obs_shape
         else:
             print("Overriding Observation dimension")
             obs_dim = override_obs_dim

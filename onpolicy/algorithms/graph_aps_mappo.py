@@ -137,14 +137,7 @@ class GR_MAPPO():
             :return imp_weights: (torch.Tensor) 
                 importance sampling weights.
         """
-        share_obs_batch, obs_batch, node_obs_batch, 
-        same_ue_adj_batch, same_ap_adj_batch, agent_id_batch, 
-        rnn_states_batch, rnn_states_critic_batch, 
-        actions_batch, value_preds_batch, return_batch, 
-        masks_batch, active_masks_batch, 
-        old_action_log_probs_batch, adv_targ, 
-        available_actions_batch = sample
-
+        all_graphs_batch, agent_id_batch, rnn_states_batch, rnn_states_critic_batch, actions_batch, value_preds_batch, return_batch, masks_batch, active_masks_batch, old_action_log_probs_batch, adv_targ, available_actions_batch = sample
         old_action_log_probs_batch = check(old_action_log_probs_batch).to(**self.tpdv)
         adv_targ = check(adv_targ).to(**self.tpdv)
         value_preds_batch = check(value_preds_batch).to(**self.tpdv)
@@ -153,17 +146,8 @@ class GR_MAPPO():
         # print("MaPPO", active_masks_batch.T)
         # Reshape to do in a single forward pass for all steps
         values, action_log_probs, dist_entropy = self.policy.evaluate_actions(
-                                                        share_obs_batch,
-                                                        obs_batch,
-                                                        node_obs_batch,
-                                                        same_ap_adj_batch,
-                                                        agent_id_batch,
-                                                        rnn_states_batch, 
-                                                        rnn_states_critic_batch, 
-                                                        actions_batch, 
-                                                        masks_batch, 
-                                                        available_actions_batch,
-                                                        active_masks_batch)
+            all_graphs_batch, agent_id_batch, rnn_states_batch, rnn_states_critic_batch, 
+            actions_batch, masks_batch, available_actions_batch, active_masks_batch)
         # actor update
         # print(f'obs: {obs_batch.shape}')
         # st = time.time()
