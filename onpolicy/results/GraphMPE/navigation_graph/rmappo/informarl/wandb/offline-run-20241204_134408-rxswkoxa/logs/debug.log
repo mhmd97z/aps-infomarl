@@ -1,0 +1,27 @@
+2024-12-04 13:44:08,267 INFO    MainThread:2745613 [wandb_setup.py:_flush():69] setting env: {}
+2024-12-04 13:44:08,267 INFO    MainThread:2745613 [wandb_setup.py:_flush():69] setting login settings: {}
+2024-12-04 13:44:08,267 INFO    MainThread:2745613 [wandb_setup.py:_flush():69] setting login settings: {'mode': 'offline'}
+2024-12-04 13:44:08,267 INFO    MainThread:2745613 [wandb_init.py:_log_setup():336] Logging user logs to /home/mzi/InforMARL/onpolicy/results/GraphMPE/navigation_graph/rmappo/informarl/wandb/offline-run-20241204_134408-rxswkoxa/logs/debug.log
+2024-12-04 13:44:08,267 INFO    MainThread:2745613 [wandb_init.py:_log_setup():337] Logging internal logs to /home/mzi/InforMARL/onpolicy/results/GraphMPE/navigation_graph/rmappo/informarl/wandb/offline-run-20241204_134408-rxswkoxa/logs/debug-internal.log
+2024-12-04 13:44:08,267 INFO    MainThread:2745613 [wandb_init.py:init():369] calling init triggers
+2024-12-04 13:44:08,268 INFO    MainThread:2745613 [wandb_init.py:init():376] wandb.init called with sweep_config: {}
+config: {'algorithm_name': 'rmappo', 'project_name': 'informarl', 'experiment_name': 'informarl', 'seed': 0, 'cuda': True, 'cuda_deterministic': True, 'n_training_threads': 1, 'n_rollout_threads': 128, 'n_eval_rollout_threads': 1, 'n_render_rollout_threads': 1, 'num_env_steps': 2000000, 'user_name': 'marl', 'use_wandb': True, 'env_name': 'GraphMPE', 'use_obs_instead_of_state': False, 'world_size': 2, 'num_scripted_agents': 0, 'obs_type': 'global', 'max_edge_dist': 1, 'num_nbd_entities': 3, 'use_comm': False, 'episode_length': 25, 'share_policy': True, 'use_centralized_V': True, 'stacked_frames': 1, 'use_stacked_frames': False, 'hidden_size': 64, 'layer_N': 1, 'use_ReLU': False, 'use_popart': True, 'use_valuenorm': False, 'use_feature_normalization': True, 'use_orthogonal': True, 'gain': 0.01, 'split_batch': False, 'max_batch_size': 32, 'use_naive_recurrent_policy': False, 'use_recurrent_policy': True, 'recurrent_N': 1, 'data_chunk_length': 10, 'lr': 0.0007, 'critic_lr': 0.0007, 'opti_eps': 1e-05, 'weight_decay': 0, 'ppo_epoch': 10, 'use_clipped_value_loss': True, 'clip_param': 0.2, 'num_mini_batch': 75, 'entropy_coef': 0.01, 'value_loss_coef': 1, 'use_max_grad_norm': True, 'max_grad_norm': 10.0, 'use_gae': True, 'gamma': 0.99, 'gae_lambda': 0.95, 'use_proper_time_limits': False, 'use_huber_loss': True, 'use_value_active_masks': True, 'use_policy_active_masks': True, 'huber_delta': 10.0, 'use_linear_lr_decay': False, 'save_interval': 1, 'log_interval': 5, 'use_eval': False, 'eval_interval': 25, 'eval_episodes': 32, 'save_gifs': False, 'use_render': False, 'render_episodes': 5, 'ifi': 0.1, 'render_eval': False, 'model_dir': None, 'verbose': True, 'scenario_name': 'navigation_graph', 'num_landmarks': 3, 'num_agents': 3, 'num_obstacles': 3, 'collaborative': True, 'max_speed': 2, 'collision_rew': 5.0, 'goal_rew': 5, 'min_dist_thresh': 0.05, 'use_dones': False, 'num_embeddings': 3, 'embedding_size': 2, 'embed_hidden_size': 16, 'embed_layer_N': 1, 'embed_use_ReLU': True, 'embed_add_self_loop': False, 'gnn_hidden_size': 16, 'gnn_num_heads': 3, 'gnn_concat_heads': False, 'gnn_layer_N': 2, 'gnn_use_ReLU': True, 'graph_feat_type': 'relative', 'actor_graph_aggr': 'node', 'critic_graph_aggr': 'global', 'global_aggr_type': 'mean', 'use_cent_obs': False, 'auto_mini_batch_size': True, 'target_mini_batch_size': 128}
+2024-12-04 13:44:08,268 INFO    MainThread:2745613 [wandb_init.py:init():418] starting backend
+2024-12-04 13:44:08,268 INFO    MainThread:2745613 [backend.py:_multiprocessing_setup():72] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2024-12-04 13:44:08,275 INFO    MainThread:2745613 [backend.py:ensure_launched():132] starting backend process...
+2024-12-04 13:44:08,279 INFO    MainThread:2745613 [backend.py:ensure_launched():137] started backend process with pid: 2745778
+2024-12-04 13:44:08,280 INFO    MainThread:2745613 [wandb_init.py:init():423] backend started and connected
+2024-12-04 13:44:08,288 INFO    MainThread:2745613 [wandb_init.py:init():465] updated telemetry
+2024-12-04 13:44:08,289 INFO    MainThread:2745613 [wandb_init.py:init():522] starting run threads in backend
+2024-12-04 13:44:10,976 INFO    MainThread:2745613 [wandb_run.py:_console_start():1538] atexit reg
+2024-12-04 13:44:10,977 INFO    MainThread:2745613 [wandb_run.py:_redirect():1412] redirect: SettingsConsole.REDIRECT
+2024-12-04 13:44:10,977 INFO    MainThread:2745613 [wandb_run.py:_redirect():1417] Redirecting console.
+2024-12-04 13:44:10,978 INFO    MainThread:2745613 [wandb_run.py:_redirect():1473] Redirects installed.
+2024-12-04 13:44:10,978 INFO    MainThread:2745613 [wandb_init.py:init():547] run started, returning control to user process
+2024-12-04 13:44:11,387 INFO    MainThread:2745613 [wandb_run.py:_atexit_cleanup():1508] got exitcode: 1
+2024-12-04 13:44:11,388 INFO    MainThread:2745613 [wandb_run.py:_restore():1480] restore
+2024-12-04 13:44:13,490 INFO    MainThread:2745613 [wandb_run.py:_wait_for_finish():1630] got exit ret: 
+2024-12-04 13:44:13,592 INFO    MainThread:2745613 [wandb_run.py:_wait_for_finish():1630] got exit ret: done: true
+exit_result {
+}
+

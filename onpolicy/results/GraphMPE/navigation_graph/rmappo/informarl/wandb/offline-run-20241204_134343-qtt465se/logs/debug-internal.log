@@ -1,0 +1,77 @@
+2024-12-04 13:43:43,853 INFO    MainThread:2744917 [internal.py:wandb_internal():91] W&B internal server running at pid: 2744917, started at: 2024-12-04 13:43:43.852916
+2024-12-04 13:43:43,855 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: run_start
+2024-12-04 13:43:43,855 INFO    WriterThread:2744917 [datastore.py:open_for_write():77] open: /home/mzi/InforMARL/onpolicy/results/GraphMPE/navigation_graph/rmappo/informarl/wandb/offline-run-20241204_134343-qtt465se/run-qtt465se.wandb
+2024-12-04 13:43:43,882 DEBUG   HandlerThread:2744917 [meta.py:__init__():39] meta init
+2024-12-04 13:43:43,882 DEBUG   HandlerThread:2744917 [meta.py:__init__():53] meta init done
+2024-12-04 13:43:43,882 DEBUG   HandlerThread:2744917 [meta.py:probe():210] probe
+2024-12-04 13:43:43,894 DEBUG   HandlerThread:2744917 [meta.py:_setup_git():200] setup git
+2024-12-04 13:43:43,904 DEBUG   HandlerThread:2744917 [meta.py:_setup_git():207] setup git done
+2024-12-04 13:43:43,904 DEBUG   HandlerThread:2744917 [meta.py:_save_pip():57] save pip
+2024-12-04 13:43:43,905 DEBUG   HandlerThread:2744917 [meta.py:_save_pip():71] save pip done
+2024-12-04 13:43:43,905 DEBUG   HandlerThread:2744917 [meta.py:_save_conda():78] save conda
+2024-12-04 13:43:46,091 DEBUG   HandlerThread:2744917 [meta.py:_save_conda():86] save conda done
+2024-12-04 13:43:46,091 DEBUG   HandlerThread:2744917 [meta.py:probe():252] probe done
+2024-12-04 13:43:48,628 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: poll_exit
+2024-12-04 13:43:48,629 DEBUG   SenderThread:2744917 [sender.py:send():179] send: exit
+2024-12-04 13:43:48,629 INFO    SenderThread:2744917 [sender.py:send_exit():287] handling exit code: 1
+2024-12-04 13:43:48,629 INFO    SenderThread:2744917 [sender.py:send_exit():295] send defer
+2024-12-04 13:43:48,629 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: poll_exit
+2024-12-04 13:43:48,629 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: defer
+2024-12-04 13:43:48,630 INFO    HandlerThread:2744917 [handler.py:handle_request_defer():141] handle defer: 0
+2024-12-04 13:43:48,630 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: defer
+2024-12-04 13:43:48,630 INFO    SenderThread:2744917 [sender.py:send_request_defer():304] handle sender defer: 0
+2024-12-04 13:43:48,630 INFO    SenderThread:2744917 [sender.py:send_request_defer():342] send defer: 1
+2024-12-04 13:43:48,630 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: defer
+2024-12-04 13:43:48,630 INFO    HandlerThread:2744917 [handler.py:handle_request_defer():141] handle defer: 1
+2024-12-04 13:43:48,693 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: defer
+2024-12-04 13:43:48,694 INFO    SenderThread:2744917 [sender.py:send_request_defer():304] handle sender defer: 1
+2024-12-04 13:43:48,694 INFO    SenderThread:2744917 [sender.py:send_request_defer():342] send defer: 2
+2024-12-04 13:43:48,694 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: defer
+2024-12-04 13:43:48,694 INFO    HandlerThread:2744917 [handler.py:handle_request_defer():141] handle defer: 2
+2024-12-04 13:43:48,694 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: defer
+2024-12-04 13:43:48,694 INFO    SenderThread:2744917 [sender.py:send_request_defer():304] handle sender defer: 2
+2024-12-04 13:43:48,694 INFO    SenderThread:2744917 [sender.py:send_request_defer():342] send defer: 3
+2024-12-04 13:43:48,694 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: defer
+2024-12-04 13:43:48,694 INFO    HandlerThread:2744917 [handler.py:handle_request_defer():141] handle defer: 3
+2024-12-04 13:43:48,694 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: defer
+2024-12-04 13:43:48,694 INFO    SenderThread:2744917 [sender.py:send_request_defer():304] handle sender defer: 3
+2024-12-04 13:43:48,694 INFO    SenderThread:2744917 [sender.py:send_request_defer():342] send defer: 4
+2024-12-04 13:43:48,695 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: defer
+2024-12-04 13:43:48,695 INFO    HandlerThread:2744917 [handler.py:handle_request_defer():141] handle defer: 4
+2024-12-04 13:43:48,695 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: defer
+2024-12-04 13:43:48,695 INFO    SenderThread:2744917 [sender.py:send_request_defer():304] handle sender defer: 4
+2024-12-04 13:43:48,695 INFO    SenderThread:2744917 [sender.py:send_request_defer():342] send defer: 5
+2024-12-04 13:43:48,695 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: defer
+2024-12-04 13:43:48,695 INFO    HandlerThread:2744917 [handler.py:handle_request_defer():141] handle defer: 5
+2024-12-04 13:43:48,695 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: defer
+2024-12-04 13:43:48,695 INFO    SenderThread:2744917 [sender.py:send_request_defer():304] handle sender defer: 5
+2024-12-04 13:43:48,695 INFO    SenderThread:2744917 [sender.py:send_request_defer():342] send defer: 6
+2024-12-04 13:43:48,695 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: defer
+2024-12-04 13:43:48,695 INFO    HandlerThread:2744917 [handler.py:handle_request_defer():141] handle defer: 6
+2024-12-04 13:43:48,695 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: defer
+2024-12-04 13:43:48,695 INFO    SenderThread:2744917 [sender.py:send_request_defer():304] handle sender defer: 6
+2024-12-04 13:43:48,695 INFO    SenderThread:2744917 [sender.py:send_request_defer():342] send defer: 7
+2024-12-04 13:43:48,696 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: defer
+2024-12-04 13:43:48,696 INFO    HandlerThread:2744917 [handler.py:handle_request_defer():141] handle defer: 7
+2024-12-04 13:43:48,696 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: defer
+2024-12-04 13:43:48,696 INFO    SenderThread:2744917 [sender.py:send_request_defer():304] handle sender defer: 7
+2024-12-04 13:43:48,696 INFO    SenderThread:2744917 [sender.py:send_request_defer():342] send defer: 8
+2024-12-04 13:43:48,696 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: defer
+2024-12-04 13:43:48,696 INFO    HandlerThread:2744917 [handler.py:handle_request_defer():141] handle defer: 8
+2024-12-04 13:43:48,696 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: defer
+2024-12-04 13:43:48,696 INFO    SenderThread:2744917 [sender.py:send_request_defer():304] handle sender defer: 8
+2024-12-04 13:43:48,696 INFO    SenderThread:2744917 [sender.py:send_request_defer():342] send defer: 9
+2024-12-04 13:43:48,696 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: defer
+2024-12-04 13:43:48,696 INFO    HandlerThread:2744917 [handler.py:handle_request_defer():141] handle defer: 9
+2024-12-04 13:43:48,696 DEBUG   SenderThread:2744917 [sender.py:send():179] send: final
+2024-12-04 13:43:48,697 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: defer
+2024-12-04 13:43:48,697 INFO    SenderThread:2744917 [sender.py:send_request_defer():304] handle sender defer: 9
+2024-12-04 13:43:48,730 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: poll_exit
+2024-12-04 13:43:48,731 DEBUG   SenderThread:2744917 [sender.py:send_request():193] send_request: poll_exit
+2024-12-04 13:43:48,731 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: get_summary
+2024-12-04 13:43:48,732 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: sampled_history
+2024-12-04 13:43:48,732 DEBUG   HandlerThread:2744917 [handler.py:handle_request():124] handle_request: shutdown
+2024-12-04 13:43:48,732 INFO    HandlerThread:2744917 [handler.py:finish():638] shutting down handler
+2024-12-04 13:43:49,697 INFO    WriterThread:2744917 [datastore.py:close():258] close: /home/mzi/InforMARL/onpolicy/results/GraphMPE/navigation_graph/rmappo/informarl/wandb/offline-run-20241204_134343-qtt465se/run-qtt465se.wandb
+2024-12-04 13:43:49,731 INFO    SenderThread:2744917 [sender.py:finish():933] shutting down sender
+2024-12-04 13:43:49,731 INFO    MainThread:2744917 [internal.py:handle_exit():78] Internal process exited
