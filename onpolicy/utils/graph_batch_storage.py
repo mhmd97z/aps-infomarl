@@ -32,7 +32,7 @@ class GraphBatchStorage:
     def set_graph(self, t, graph_data):
         if isinstance(graph_data, HeteroData):
             assert t < self.T, IndexError("Index (t, b) out of bounds.")
-            assert len(graph_data.size()) == self.B
+            assert graph_data['channel']['batch'].max().item() + 1 == self.B
             self.storage[t] = graph_data
         else:
             raise NotImplementedError
