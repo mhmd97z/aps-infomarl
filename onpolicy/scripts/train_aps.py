@@ -96,7 +96,6 @@ def parse_args(args, parser):
 def main(args):
     parser = get_config()
     all_args = parser.parse_known_args(args)[0]
-    
     yaml_path = "/home/mzi/aps-infomarl/onpolicy/aps-config.yaml"
     with open(yaml_path, 'r') as file:
         yaml_config = yaml.safe_load(file)
@@ -216,7 +215,6 @@ def main(args):
     envs = make_train_env(all_args)
     eval_envs = make_eval_env(all_args) if all_args.use_eval else None
     num_agents = all_args.env_args.simulation_scenario.number_of_aps * all_args.env_args.simulation_scenario.number_of_ues
-
     config = {
         "all_args": all_args,
         "envs": envs,

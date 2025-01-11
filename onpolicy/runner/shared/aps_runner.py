@@ -53,9 +53,7 @@ class ApsRunner(Runner):
             if self.use_linear_lr_decay:
                 self.trainer.policy.lr_decay(episode, episodes)
 
-            print(f"\nsampling episode: {episode}")
             for step in range(self.episode_length):
-                print(f"taking episode step: {step}")
                 # Sample actions
                 (
                     values,

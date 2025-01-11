@@ -23,10 +23,10 @@ env_args:
     if_use_cuda_sim: True
     step_length: 1
     morphology: urban
-    number_of_ues: 4
-    number_of_aps: 20
-    max_serving_ue_count: 4
-    max_measurment_ap_count: 20
+    number_of_ues: 6
+    number_of_aps: 30
+    max_serving_ue_count: 6
+    max_measurment_ap_count: 30
     power_control_saved_model: /home/mzi/aps-mappo/onpolicy/envs/aps/lib/gnn_olp/trained_model/checkpoints/best_epoch=953.ckpt
     data_normalization_config: /home/mzi/aps-mappo/onpolicy/envs/aps/lib/gnn_olp/normalization_config.yaml
     precoding_algorithm: olp # olp, mrt, optimal
