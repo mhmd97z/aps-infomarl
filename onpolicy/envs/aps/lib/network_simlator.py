@@ -35,28 +35,27 @@ class NetworkSimulator:
 
         self.channel_manager = NlosChannelManager(self.scenario_conf)
 
+
     def set_seed(self, seed):
         self.seed = seed
+
 
     def reset(self):
         self.seed += 1
         set_random_seed(self.seed)
-        self.channel_manager.generate_locations() # initialize the locations
-        self.channel_manager.assign_measurement_aps() # define the measurment ap set
-        self.step(self.channel_manager.measurement_mask)
+        self.measurement_mask = self.channel_manager.reset()
+        self.step(self.measurement_mask)
 
-    def ue_mobility(self):
-        pass  # Placeholder for UE mobility logic
 
     def step(self, connection_choices):
         self.serving_mask = connection_choices.reshape(
             (self.number_of_aps,
              self.number_of_ues)).to(self.tpdv['device'])
-        self.serving_mask *= self.channel_manager.measurement_mask
+        self.serving_mask *= self.measurement_mask
 
         for _ in range(self.step_length):
             # simulator should know everything!! => calculating channel coef with full obsevability
-            G, masked_G, rho_d = self.channel_manager.calculate_coefs()  # adding small-scale measurements
+            G, masked_G, rho_d = self.channel_manager.step()  # adding small-scale measurements
             if self.scenario_conf.precoding_algorithm == "optimal":
                 _, allocated_power = self.power_control.get_optimal_sinr(G, rho_d) # allocating power
                 embedding, graph = None, None
@@ -76,5 +75,5 @@ class NetworkSimulator:
                                totoal_power_consumption=totoal_power_consumption,
                                graph=graph)   # add to the data store
 
-        self.channel_manager.assign_measurement_aps()
+        # self.channel_manager.assign_measurement_aps()
 
