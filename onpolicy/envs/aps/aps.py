@@ -58,10 +58,10 @@ class Aps(gym.Env):
         actions = torch.from_numpy(actions).to(self.env_args.simulation_scenario.device_sim)
         self.simulator.step(actions)
 
-        obs, state, reward, mask, info = self.compute_state_reward()
+        obs, state, reward, mask, info, same_ue, same_ap = self.compute_state_reward()
         done = [False] * self.n_agents
 
-        return obs, state, reward, done, info, mask
+        return obs, state, reward, done, info, mask, same_ue, same_ap
 
 
     def compute_state_reward(self):
@@ -82,6 +82,7 @@ class Aps(gym.Env):
         else:
             # graphs = simulator_info['graph']
             channel_coef = simulator_info['channel_coef']
+
             # TODO: aggregate over step length
             # self.datastore.add(obs=graphs[0])
             self.datastore.add(obs=channel_coef.mean(dim=0))
@@ -131,11 +132,11 @@ class Aps(gym.Env):
             eta = self.env_args.se_coef
             threshold = self.env_args.sinr_threshold
             if self.env_args.if_full_cooperation:
-                constraints = simulator_info['sinr'].clone().mean(dim=0)
+                constraints = simulator_info['sinr'].clone()
                 constraints.fill_(simulator_info['sinr'].min() - threshold)
             else:
                 constraints = (simulator_info['sinr'] - threshold).mean(dim=0)
-
+                
             if self.env_args.barrier_function == 'exponential':
                 se_violation_cost = torch.clip(torch.exp(-eta * constraints), max=500) # / (measurement_mask.sum(dim=0) + 1)
                 se_violation_cost = se_violation_cost.expand(self.num_aps, -1).clone()
@@ -165,13 +166,12 @@ class Aps(gym.Env):
             'mean_serving_ap_count': serving_mask.reshape((self.num_aps, self.num_ues)).sum(dim=0).float().mean(),
             'se_violation_cost': se_violation_cost.mean(),
             'power_coef_cost': power_coef_cost.mean(),
-            'ue_x': self.simulator.channel_manager.loc_ues[0],
-            'ue_y': self.simulator.channel_manager.loc_ues[1],
-            'ap_x': self.simulator.channel_manager.loc_aps[0],
-            'ap_y': self.simulator.channel_manager.loc_aps[1]
         }
 
-        return obs.cpu().numpy(), state.cpu().numpy(), reward.cpu().numpy(), mask.cpu().numpy(), info
+        same_ue = simulator_info['graph'][0]['channel', 'same_ue', 'channel'].edge_index.cpu().numpy()
+        same_ap = simulator_info['graph'][0]['channel', 'same_ap', 'channel'].edge_index.cpu().numpy()
+
+        return obs.cpu().numpy(), state.cpu().numpy(), reward.cpu().numpy(), mask.cpu().numpy(), info, same_ue, same_ap
 
 
     def get_obs_size(self):
@@ -193,9 +193,9 @@ class Aps(gym.Env):
 
     def reset(self):
         self.simulator.reset()
-        obs, state, _, mask, info = self.compute_state_reward()
+        obs, state, _, mask, info, same_ue, same_ap = self.compute_state_reward()
 
-        return obs, state, mask, info
+        return obs, state, mask, info, same_ue, same_ap
 
 
     def process_obs_graph(self, graph):

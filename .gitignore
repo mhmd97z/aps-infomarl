@@ -7,3 +7,4 @@ out_*
 .eggs/
 *.egg-info/
 *.pyc
+results/

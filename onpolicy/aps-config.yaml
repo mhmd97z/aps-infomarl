@@ -21,7 +21,7 @@ env_args:
 
   simulation_scenario:
     if_use_cuda_sim: True
-    step_length: 1
+    step_length: 10
     morphology: urban
     number_of_ues: 2
     number_of_aps: 10
