@@ -31,9 +31,12 @@ class PowerControl:
         else:
             return sinr
 
-    def get_power_consumption(self, allocated_power):
-        return torch.sum(torch.norm(allocated_power, p=2, dim=1) ** 2) \
-            * self.conf.ap_radiation_power
+    def get_transmission_power(self, allocated_power):
+        return allocated_power.abs() ** 2 \
+            * self.conf.ap_radiation_power / self.conf.signal_transmission_efficiency
+
+    def get_ap_circuit_power(self, mask):
+        return torch.sum(mask, dim=1).sign() * self.conf.ap_constant_power_consumption
 
     def get_optimal_sinr(self, G, rho_d):
         low, up, eps = 0, 10**6, 0.01

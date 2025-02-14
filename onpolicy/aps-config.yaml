@@ -1,5 +1,5 @@
 env_args:
-  episode_limit: 8
+  episode_limit: 10
 
   # state
   use_gnn_embedding: False
@@ -33,7 +33,9 @@ env_args:
     seed: 100
     float_dtype_sim: torch.float32
     ap_radiation_power: 0.2
+    signal_transmission_efficiency: 0.4
+    ap_constant_power_consumption: 0.5 # 0.2
     if_sinr_in_db: True
     if_power_in_db: True
-    ue_mobility_type: vehicular # pedestrain, vehicular
+    ue_mobility_type: pedestrain # pedestrain, vehicular
     simulation_timestep: 50 # 50 ms

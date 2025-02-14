@@ -22,7 +22,8 @@ class NetworkSimulator:
         self.datastore = DataStore(self.step_length,
                                             ['channel_coef', 'power_coef',
                                              'sinr', 'embedding',
-                                             'totoal_power_consumption',
+                                             'ap_circuit_power_consumption',
+                                             'transmission_power_consumption',
                                              'graph'])
         if self.scenario_conf.precoding_algorithm == "olp":
             from onpolicy.envs.aps.lib.power_control import OlpGnnPowerControl
@@ -64,16 +65,16 @@ class NetworkSimulator:
                 allocated_power, embedding, graph = self.power_control.get_power_coef(G, rho_d, return_graph=True)
             # to simulate aps, we set the non-activated power coef to zero
             masked_allocated_power = allocated_power.clone().detach() * self.serving_mask
-            # calc total power consumption
-            totoal_power_consumption = self.power_control.get_power_consumption(masked_allocated_power)
+            # calc power consumption
+            transmission_power_consumption = self.power_control.get_transmission_power(masked_allocated_power)
+            ap_circuit_power_consumption = self.power_control.get_ap_circuit_power(self.serving_mask)
             # calc sinr with full channel info and the maked allocated power
             sinr = self.power_control.calcualte_sinr(G, rho_d, masked_allocated_power)
-
             # store the info
             self.datastore.add(channel_coef=masked_G, power_coef=masked_allocated_power, 
                                embedding=embedding, sinr=sinr,
-                               totoal_power_consumption=totoal_power_consumption,
+                               transmission_power_consumption=transmission_power_consumption,
+                               ap_circuit_power_consumption=ap_circuit_power_consumption,
                                graph=graph)   # add to the data store
-
         # self.channel_manager.assign_measurement_aps()
 
