@@ -14,7 +14,7 @@ env_args:
   barrier_function: exponential # exponential
   se_coef: 20 # 10-20 for step, 5 for exponential
   power_coef: 1
-  if_use_local_power_sum: True
+  if_use_local_power_sum: False
   if_sum_cost: False
   if_full_cooperation: False
   if_connection_cost: True
@@ -34,7 +34,7 @@ env_args:
     float_dtype_sim: torch.float32
     ap_radiation_power: 0.2
     signal_transmission_efficiency: 0.4
-    ap_constant_power_consumption: 0.5 # 0.2
+    ap_constant_power_consumption: 0.2
     if_sinr_in_db: True
     if_power_in_db: True
     ue_mobility_type: pedestrain # pedestrain, vehicular

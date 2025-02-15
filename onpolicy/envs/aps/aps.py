@@ -167,7 +167,10 @@ class Aps(gym.Env):
         info = {
             'min_sinr': simulator_info['sinr'].mean(dim=0).min().mean(),
             'mean_sinr': simulator_info['sinr'].mean(),
+            'transmission_power_consumption': transmission_power_consumption.sum(),
+            'circuit_power_consumption': circuit_power_consumption.sum(),
             'totoal_power_consumption': transmission_power_consumption.sum() + ap_circuit_power_consumption.sum(),
+            'active_ap_count': torch.sum(serving_mask.reshape((self.num_aps, self.num_ues)), dim=1).sign().sum(),
             'reward': reward.mean(),
             'mean_serving_ap_count': serving_mask.reshape((self.num_aps, self.num_ues)).sum(dim=0).float().mean(),
             'se_violation_cost': se_violation_cost.mean(),

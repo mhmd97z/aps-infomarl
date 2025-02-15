@@ -1,7 +1,7 @@
 #!/bin/sh
 env="aps"
 algo="mappo"
-exp="updated_power_apconst05/ped/gnnmappo/pcoef1_localpsum1_conncost0"
+exp="updated_power/ped/gnnmappo/pcoef1_localpsum0_conncost1"
 seed_max=1
 
 for seed in `seq ${seed_max}`;
