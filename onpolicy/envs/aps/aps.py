@@ -156,7 +156,8 @@ class Aps(gym.Env):
                 reward = -(se_violation_cost + power_coef_cost).clone().detach()
             else:
                 reward = - se_violation_cost.clone().detach()
-                reward[se_violation_cost < 5.] = - power_coef_cost[se_violation_cost < 5.].clone().detach()
+                reward[se_violation_cost < float(self.env_args.sec_to_pc_switch_threshold)] = \
+                    - power_coef_cost[se_violation_cost < float(self.env_args.sec_to_pc_switch_threshold)].clone().detach()
 
         else:
             raise NotImplementedError

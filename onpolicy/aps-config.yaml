@@ -16,6 +16,7 @@ env_args:
   power_coef: 1
   if_use_local_power_sum: False
   if_sum_cost: False
+  sec_to_pc_switch_threshold: 10.0
   if_full_cooperation: False
   if_connection_cost: True
 
