@@ -3,7 +3,7 @@ import torch
 import numpy as np
 from torch_geometric.data import HeteroData
 from onpolicy.envs.aps.lib.gnn_olp.gnn import FastGNNLinearPrecodingLightning
-from onpolicy.envs.aps.lib.utils import opti_OLP, clip_abs
+from onpolicy.envs.aps.lib.utils import opti_OLP, clip_abs, get_adj
 
 
 class PowerControl:
@@ -98,35 +98,10 @@ class OlpGnnPowerControl(PowerControl):
         self.model = self.model.to(**self.tpdv)
 
     def graph_generation(self, n_aps, n_ues):
-        same_ap_edges = []
-        same_ue_edges = []  # edges id from 0 to n_ues*n_aps-1
-        # UE type edges
-        # for k in range(n_ues):
-        #     for m1 in range(n_aps):
-        #         for m2 in range(m1 + 1, n_aps):
-        #             same_ue_edges.append([k * n_aps + m1, k * n_aps + m2])
-        #             # reverse to make graph unoriented
-        #             same_ue_edges.append([k * n_aps + m2, k * n_aps + m1])
-        for cntr_1 in range(n_ues * n_aps):
-            for cntr_2 in range(n_ues * n_aps):
-                if cntr_1 == cntr_2:
-                    continue
-                if cntr_1 % n_ues == cntr_2 % n_ues:
-                    same_ue_edges.append((cntr_1, cntr_2))
-                elif int(cntr_1 / n_ues) == int(cntr_2 / n_ues):
-                    same_ap_edges.append((cntr_1, cntr_2))
-                else:
-                    pass
+        same_ue_edges, same_ap_edges = get_adj(n_ues, n_aps)
 
         same_ue_edges = torch.tensor(same_ue_edges).t().contiguous().to(self.tpdv['device'])
         same_ap_edges = torch.tensor(same_ap_edges).t().contiguous().to(self.tpdv['device'])
-        # # AP type edges
-        # for m in range(n_aps):
-        #     for k1 in range(n_ues):
-        #         for k2 in range(k1 + 1, n_ues):
-        #             same_ap_edges.append([k1 * n_aps + m, k2 * n_aps + m])
-        #             # reverse to make graph unoriented
-        #             same_ap_edges.append([k2 * n_aps + m, k1 * n_aps + m])
 
         data = HeteroData()
         data['channel'].x = None
@@ -137,9 +112,10 @@ class OlpGnnPowerControl(PowerControl):
     def get_power_coef(self, G, rho_d, return_graph=False):
         # pre-process
         number_of_aps, number_of_ues = G.shape
-        if self.graph_shape != (number_of_aps, number_of_ues):
-            self.graph_shape = (number_of_aps, number_of_ues)
-            self.graph = self.graph_generation(number_of_aps, number_of_ues)
+        # if self.graph_shape != (number_of_aps, number_of_ues):
+        #     self.graph_shape = (number_of_aps, number_of_ues)
+        #     self.graph = self.graph_generation(number_of_aps, number_of_ues)
+        self.graph = self.graph_generation(number_of_aps, number_of_ues)
 
         G = clip_abs(G)
         G_T = G.T

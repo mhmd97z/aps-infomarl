@@ -83,3 +83,19 @@ def tpdv_parse(conf):
         conf.simulation_scenario.device_sim = torch.device("cpu")
 
     conf.simulation_scenario.float_dtype_sim = eval(conf.simulation_scenario.float_dtype_sim)
+
+def get_adj(n_ues, n_aps):
+    same_ap_edges = []
+    same_ue_edges = []
+    for cntr_1 in range(n_ues * n_aps):
+        for cntr_2 in range(n_ues * n_aps):
+            if cntr_1 == cntr_2:
+                continue
+            if cntr_1 % n_ues == cntr_2 % n_ues:
+                same_ue_edges.append((cntr_1, cntr_2))
+            elif int(cntr_1 / n_ues) == int(cntr_2 / n_ues):
+                same_ap_edges.append((cntr_1, cntr_2))
+            else:
+                pass
+
+    return np.array(same_ue_edges), np.array(same_ap_edges)

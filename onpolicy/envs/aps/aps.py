@@ -4,7 +4,7 @@ import yaml
 from gym import spaces
 from onpolicy.envs.aps.lib.network_simlator import NetworkSimulator
 from onpolicy.envs.aps.lib.data_store import DataStore
-from onpolicy.envs.aps.lib.utils import get_polar, range_normalization, tpdv_parse
+from onpolicy.envs.aps.lib.utils import get_polar, range_normalization, tpdv_parse, get_adj
 
 
 def get_polar(a):
@@ -37,6 +37,8 @@ class Aps(gym.Env):
         self.num_ues = self.simulator.scenario_conf.number_of_ues
         self.num_aps = self.simulator.scenario_conf.number_of_aps
         self.n_agents = self.num_ues * self.num_aps
+
+        self.same_ue_edges, self.same_ap_edges = get_adj(self.num_ues, self.num_aps)
 
         self.action_space = [spaces.Discrete(2) for _ in range(self.n_agents)]
         self.observation_space = [
@@ -178,10 +180,7 @@ class Aps(gym.Env):
             'power_coef_cost': power_coef_cost.mean(),
         }
 
-        same_ue = simulator_info['graph'][0]['channel', 'same_ue', 'channel'].edge_index.cpu().numpy()
-        same_ap = simulator_info['graph'][0]['channel', 'same_ap', 'channel'].edge_index.cpu().numpy()
-
-        return obs.cpu().numpy(), state.cpu().numpy(), reward.cpu().numpy(), mask.cpu().numpy(), info, same_ue, same_ap
+        return obs.cpu().numpy(), state.cpu().numpy(), reward.cpu().numpy(), mask.cpu().numpy(), info, self.same_ue_edges, self.same_ap_edges
 
 
     def get_obs_size(self):

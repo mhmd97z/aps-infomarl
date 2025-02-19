@@ -13,10 +13,10 @@ def _t2n(x):
     return x.detach().cpu().numpy()
 
 def generate_graph_batch(obs, same_ap_adj, same_ue_adj, agent_id):
-    same_ue_adj = same_ue_adj.reshape((-1, 2, same_ue_adj.shape[-1]))
-    same_ap_adj = same_ap_adj.reshape((-1, 2, same_ap_adj.shape[-1]))
-
     n_envs = same_ap_adj.shape[0]
+    same_ue_adj = same_ue_adj.reshape((n_envs, 2, -1))
+    same_ap_adj = same_ap_adj.reshape((n_envs, 2, -1))
+
     obs = obs.reshape((n_envs, -1, obs.shape[-1]))
     agent_id = agent_id.reshape((n_envs, -1, 1))
 

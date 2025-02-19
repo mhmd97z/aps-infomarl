@@ -62,7 +62,15 @@ class NetworkSimulator:
                 embedding, graph = None, None
                 allocated_power = torch.from_numpy(allocated_power).to(G)
             else:
-                allocated_power, embedding, graph = self.power_control.get_power_coef(G, rho_d, return_graph=True)
+                off_aps = (self.serving_mask == 0).all(dim=1).nonzero(as_tuple=True)[0]
+                mask = torch.ones(G.shape[0], dtype=torch.bool)
+                mask[off_aps] = False
+                G_reduced = G[mask]
+                allocated_power_reduced, embedding, graph = self.power_control.get_power_coef(G_reduced, rho_d, return_graph=True)
+                allocated_power_reduced.reshape(G_reduced.shape)
+                allocated_power = torch.zeros_like(G)
+                allocated_power[mask] = allocated_power_reduced
+
             # to simulate aps, we set the non-activated power coef to zero
             masked_allocated_power = allocated_power.clone().detach() * self.serving_mask
             # calc power consumption
