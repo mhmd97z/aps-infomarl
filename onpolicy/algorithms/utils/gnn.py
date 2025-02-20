@@ -581,7 +581,7 @@ class Aps_GNN(nn.Module):
     def __init__(self, args, input_shape):
         super(Aps_GNN, self).__init__()
         self.args = args
-        hc = [32, 32]
+        hc = [32, 32, 32]
         num_layers = len(hc)
         heads = 4
         aggr = 'sum'

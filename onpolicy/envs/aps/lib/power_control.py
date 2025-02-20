@@ -164,6 +164,16 @@ class OlpGnnPowerControl(PowerControl):
         y2 = torch.matmul(G_dague, A2 - torch.diag(torch.diag(A2)))
         power_coef = y1 + y2 + y3
 
+        # normalize the allocated power to a max of one
+        power = power_coef.clone()
+        power = torch.linalg.norm(power, dim=1, keepdim=True)
+        power_violated_index = power > 1
+        power_ok_index = ~power_violated_index
+        scaling_power = power_violated_index*power + power_ok_index
+        scaling_power = scaling_power.expand(-1, number_of_ues)
+        scaling_power = scaling_power.view(number_of_aps, number_of_ues)
+        power_coef /= scaling_power
+        
         if return_graph:
             return power_coef, penultimate.view(-1, number_of_aps * number_of_ues), self.graph.clone()
         else:
