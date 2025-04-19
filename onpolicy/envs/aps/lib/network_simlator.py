@@ -24,7 +24,7 @@ class NetworkSimulator:
                                              'sinr', 'embedding',
                                              'ap_circuit_power_consumption',
                                              'transmission_power_consumption',
-                                             'graph'])
+                                             'graph', 'clean_sinr'])
         if self.scenario_conf.precoding_algorithm == "olp":
             from onpolicy.envs.aps.lib.power_control import OlpGnnPowerControl
             self.power_control = OlpGnnPowerControl(self.scenario_conf)
@@ -62,14 +62,18 @@ class NetworkSimulator:
                 embedding, graph = None, None
                 allocated_power = torch.from_numpy(allocated_power).to(G)
             else:
-                off_aps = (self.serving_mask == 0).all(dim=1).nonzero(as_tuple=True)[0]
-                mask = torch.ones(G.shape[0], dtype=torch.bool)
-                mask[off_aps] = False
-                G_reduced = G[mask]
-                allocated_power_reduced, embedding, graph = self.power_control.get_power_coef(G_reduced, rho_d, return_graph=True)
-                allocated_power_reduced.reshape(G_reduced.shape)
-                allocated_power = torch.zeros_like(G)
-                allocated_power[mask] = allocated_power_reduced
+                if self.scenario_conf.if_remove_off_aps_form_olp:
+                    off_aps = (self.serving_mask == 0).all(dim=1).nonzero(as_tuple=True)[0]
+                    mask = torch.ones(G.shape[0], dtype=torch.bool)
+                    mask[off_aps] = False
+                    G_reduced = G[mask]
+                    serving_mask_reduced = self.serving_mask[mask]
+                    allocated_power_reduced, embedding, graph = self.power_control.get_power_coef(G_reduced, rho_d, serving_mask_reduced, return_graph=True) # G_reduced
+                    allocated_power_reduced.reshape(G_reduced.shape)
+                    allocated_power = torch.zeros_like(G)
+                    allocated_power[mask] = allocated_power_reduced
+                else:
+                    allocated_power, embedding, graph = self.power_control.get_power_coef(G, rho_d, self.serving_mask, return_graph=True)
 
             # to simulate aps, we set the non-activated power coef to zero
             masked_allocated_power = allocated_power.clone().detach() * self.serving_mask
@@ -78,9 +82,10 @@ class NetworkSimulator:
             ap_circuit_power_consumption = self.power_control.get_ap_circuit_power(self.serving_mask)
             # calc sinr with full channel info and the maked allocated power
             sinr = self.power_control.calcualte_sinr(G, rho_d, masked_allocated_power)
+            clean_sinr = self.power_control.calcualte_sinr(G, rho_d, allocated_power)
             # store the info
             self.datastore.add(channel_coef=masked_G, power_coef=masked_allocated_power, 
-                               embedding=embedding, sinr=sinr,
+                               embedding=embedding, sinr=sinr, clean_sinr=clean_sinr,
                                transmission_power_consumption=transmission_power_consumption,
                                ap_circuit_power_consumption=ap_circuit_power_consumption,
                                graph=graph)   # add to the data store

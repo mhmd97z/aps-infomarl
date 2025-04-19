@@ -109,7 +109,7 @@ class OlpGnnPowerControl(PowerControl):
         data['channel', 'same_ap', 'channel'].edge_index = same_ap_edges
         return data
 
-    def get_power_coef(self, G, rho_d, return_graph=False):
+    def get_power_coef(self, G, rho_d, mask, return_graph=False):
         # pre-process
         number_of_aps, number_of_ues = G.shape
         # if self.graph_shape != (number_of_aps, number_of_ues):
@@ -129,7 +129,7 @@ class OlpGnnPowerControl(PowerControl):
         x_mean = torch.tensor(self.normalization_dict['x_mean']).to(**self.tpdv)
         x_std = torch.tensor(self.normalization_dict['x_std']).to(**self.tpdv)
         x = (x - x_mean) / x_std
-
+        x = torch.cat((x, mask.T.reshape(-1, 1)), dim=1)
         self.graph['channel'].x = x.to(**self.tpdv)
         self.graph['channel'].input_mean = torch.reshape(x_mean, (1, 4)).to(**self.tpdv)
         self.graph['channel'].input_std = torch.reshape(x_std, (1, 4)).to(**self.tpdv)
