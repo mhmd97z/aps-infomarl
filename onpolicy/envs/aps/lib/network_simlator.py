@@ -1,10 +1,11 @@
+import os, sys
 import torch
-from onpolicy.envs.aps.lib.channel_manager import NlosChannelManager
-from onpolicy.envs.aps.lib.utils import set_random_seed
-from onpolicy.envs.aps.lib.data_store import DataStore
-import logging
-
-logger = logging.getLogger(__name__)
+# print("in network_simulator.py: os.getcwd(): ", os.getcwd())
+# sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "../envs/aps/lib")))
+print("in network_simulator.py: sys.path: ", sys.path)
+from channel_manager import NlosChannelManager
+from aps_utils import set_random_seed
+from data_store import DataStore
 
 
 class NetworkSimulator:
@@ -15,10 +16,8 @@ class NetworkSimulator:
         self.seed = self.scenario_conf.seed
         self.step_length = self.scenario_conf.step_length
         self.tpdv = dict(device=conf.device_sim, type=conf.float_dtype_sim)
-
         self.serving_mask = torch.zeros((self.number_of_aps, self.number_of_ues), 
                                         dtype=torch.bool, device=conf.device_sim)
-
         self.datastore = DataStore(self.step_length,
                                             ['channel_coef', 'power_coef',
                                              'sinr', 'embedding',
@@ -26,27 +25,23 @@ class NetworkSimulator:
                                              'transmission_power_consumption',
                                              'graph', 'clean_sinr'])
         if self.scenario_conf.precoding_algorithm == "olp":
-            from onpolicy.envs.aps.lib.power_control import OlpGnnPowerControl
+            from power_control import OlpGnnPowerControl
             self.power_control = OlpGnnPowerControl(self.scenario_conf)
         elif self.scenario_conf.precoding_algorithm == "mrt" or self.scenario_conf.precoding_algorithm == "optimal":
-            from onpolicy.envs.aps.lib.power_control import MrtPowerControl
+            from power_control import MrtPowerControl
             self.power_control = MrtPowerControl(self.scenario_conf)
         else:
             raise NotImplementedError()
-
         self.channel_manager = NlosChannelManager(self.scenario_conf)
-
 
     def set_seed(self, seed):
         self.seed = seed
-
 
     def reset(self):
         self.seed += 1
         set_random_seed(self.seed)
         self.measurement_mask = self.channel_manager.reset()
         self.step(self.measurement_mask)
-
 
     def step(self, connection_choices):
         self.serving_mask = connection_choices.reshape(
@@ -60,7 +55,6 @@ class NetworkSimulator:
             if self.scenario_conf.precoding_algorithm == "optimal":
                 _, allocated_power = self.power_control.get_optimal_sinr(G, rho_d) # allocating power
                 embedding, graph = None, None
-                allocated_power = torch.from_numpy(allocated_power).to(G)
             else:
                 if self.scenario_conf.if_remove_off_aps_form_olp:
                     off_aps = (self.serving_mask == 0).all(dim=1).nonzero(as_tuple=True)[0]
@@ -90,4 +84,3 @@ class NetworkSimulator:
                                ap_circuit_power_consumption=ap_circuit_power_consumption,
                                graph=graph)   # add to the data store
         # self.channel_manager.assign_measurement_aps()
-

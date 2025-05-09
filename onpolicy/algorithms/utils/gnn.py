@@ -581,7 +581,7 @@ class Aps_GNN(nn.Module):
     def __init__(self, args, input_shape):
         super(Aps_GNN, self).__init__()
         self.args = args
-        hc = [32, 32, 32]
+        hc = [128, 128, 128]
         num_layers = len(hc)
         heads = 4
         aggr = 'sum'
@@ -594,18 +594,17 @@ class Aps_GNN(nn.Module):
             conv = HeteroConv({
                 ('channel', 'same_ue', 'channel'):
                 TransformerConv(in_channels, out_channels,
-                                heads=heads, dropout=0.0, root_weight=True, concat=True),
+                                heads=heads, dropout=0.3, root_weight=True, concat=True),
                 ('channel', 'same_ap', 'channel'):
                 TransformerConv(in_channels, out_channels,
-                                heads=heads, dropout=0.0, root_weight=True, concat=True)
+                                heads=heads, dropout=0.3, root_weight=True, concat=True)
             }, aggr=aggr)
             self.convs.append(conv)
             self.norms.append(LayerNorm(hc[i+1]))
 
-        self.lin0 = Linear(2, 32)
-        self.lin1 = Linear(sum(hc), 32)
-
-        self.out_dim = 32
+        self.lin0 = Linear(2, 128)
+        self.lin1 = Linear(sum(hc), 64)
+        self.out_dim = 64
 
     def init_hidden(self):
         return None
@@ -632,5 +631,4 @@ class Aps_GNN(nn.Module):
 
         if sampler is not None:
             embedding = embedding[sampler[0]].clone()
-
         return embedding

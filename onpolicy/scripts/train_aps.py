@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os, sys
 import argparse
 from distutils.util import strtobool
 import wandb
@@ -10,8 +11,6 @@ from pathlib import Path
 from argparse import Namespace
 import torch
 import torch.multiprocessing as mp
-
-import os, sys
 
 sys.path.append(os.path.abspath(os.getcwd()))
 sys.path.append("../../")
@@ -30,7 +29,7 @@ def make_train_env(all_args: argparse.Namespace):
     def get_env_fn(rank: int):
         def init_env():
             if all_args.env_name == "aps":
-                env = Aps(all_args.env_args)
+                env = Aps(all_args.env_args, if_graph=True)
             else:
                 print(f"Can not support the {all_args.env_name} environment")
                 raise NotImplementedError
@@ -55,7 +54,7 @@ def make_eval_env(all_args: argparse.Namespace):
     def get_env_fn(rank: int):
         def init_env():
             if all_args.env_name == "aps":
-                env = Aps(all_args.env_args)
+                env = Aps(all_args.env_args, if_graph=True)
             else:
                 print(f"Can not support the {all_args.env_name} environment")
                 raise NotImplementedError

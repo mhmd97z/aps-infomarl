@@ -1,6 +1,6 @@
 import torch
 from math import log10, pi
-from onpolicy.envs.aps.lib.mobility import MobilityManager
+from mobility import MobilityManager
 
 
 class NlosChannelManager:

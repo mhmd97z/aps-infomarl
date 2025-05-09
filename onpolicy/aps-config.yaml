@@ -2,23 +2,18 @@ env_args:
   episode_limit: 10
 
   # state
-  use_gnn_embedding: False
-  embedding_length: 16
   history_length: 1
   if_include_channel_rank: False
 
   # reward
-  reward: se_requirement
-  reward_power_consumption_coef: 0.0
   sinr_threshold: 0
-  barrier_function: exponential # exponential
   se_coef: 20 # 10-20 for step, 5 for exponential
   power_coef: 1
   sec_to_pc_switch_threshold: 10.0
-  if_use_local_power_sum: False
+  if_use_local_power_sum: True
   if_sum_cost: False
-  if_full_cooperation: False
   if_connection_cost: True
+  if_full_cooperation: False
 
   simulation_scenario:
     if_use_cuda_sim: True
@@ -38,6 +33,6 @@ env_args:
     if_sinr_in_db: True
     if_power_in_db: True
     ue_mobility_type: vehicular # pedestrain, vehicular
-    simulation_timestep: 50 # 50 ms
+    simulation_timestep: 50 # ms
     step_length: 10
     if_remove_off_aps_form_olp: True

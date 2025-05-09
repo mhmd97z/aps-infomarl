@@ -145,8 +145,11 @@ class Aps_GR_Actor(nn.Module):
         :return rnn_states: (torch.Tensor)
             Updated RNN hidden states.
         """
-        rnn_states = check(rnn_states).to(**self.tpdv)
-        masks = check(masks).to(**self.tpdv)
+        if rnn_states is not None:
+            rnn_states = check(rnn_states).to(**self.tpdv)
+        if masks is not None:
+            masks = check(masks).to(**self.tpdv)
+
         if available_actions is not None:
             available_actions = check(available_actions).to(**self.tpdv)
         

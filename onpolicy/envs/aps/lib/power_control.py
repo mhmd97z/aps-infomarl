@@ -1,9 +1,12 @@
+import os
+import sys
 import yaml
 import torch
 import numpy as np
 from torch_geometric.data import HeteroData
-from onpolicy.envs.aps.lib.gnn_olp.gnn import FastGNNLinearPrecodingLightning
-from onpolicy.envs.aps.lib.utils import opti_OLP, clip_abs, get_adj
+sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "../envs/aps/lib")))
+from gnn_olp.gnn import FastGNNLinearPrecodingLightning
+from aps_utils import opti_OLP, clip_abs, get_adj
 
 
 class PowerControl:
@@ -25,7 +28,6 @@ class PowerControl:
         sinr = numerator / denominator
         # to avoid -inf values:
         sinr[sinr == 0] = 1e-20
-        
         if self.conf.if_sinr_in_db:
             return 10*torch.log10(sinr)
         else:
@@ -84,10 +86,7 @@ class OlpGnnPowerControl(PowerControl):
         super().__init__(conf)
         with open(self.conf.data_normalization_config, 'r') as config_file:
             self.normalization_dict = yaml.safe_load(config_file)
-
-        self.graph = None
-        self.graph_shape = None
-
+        self.graph_shape = (0, 0)
         self.load_model()
 
     def load_model(self):
@@ -98,11 +97,9 @@ class OlpGnnPowerControl(PowerControl):
         self.model = self.model.to(**self.tpdv)
 
     def graph_generation(self, n_aps, n_ues):
-        same_ue_edges, same_ap_edges = get_adj(n_ues, n_aps)
-
+        same_ue_edges, same_ap_edges = get_adj(n_ues, n_aps, if_transpose=True)
         same_ue_edges = torch.tensor(same_ue_edges).t().contiguous().to(self.tpdv['device'])
         same_ap_edges = torch.tensor(same_ap_edges).t().contiguous().to(self.tpdv['device'])
-
         data = HeteroData()
         data['channel'].x = None
         data['channel', 'same_ue', 'channel'].edge_index = same_ue_edges
@@ -112,11 +109,9 @@ class OlpGnnPowerControl(PowerControl):
     def get_power_coef(self, G, rho_d, mask, return_graph=False):
         # pre-process
         number_of_aps, number_of_ues = G.shape
-        # if self.graph_shape != (number_of_aps, number_of_ues):
-        #     self.graph_shape = (number_of_aps, number_of_ues)
-        #     self.graph = self.graph_generation(number_of_aps, number_of_ues)
-        self.graph = self.graph_generation(number_of_aps, number_of_ues)
-
+        if self.graph_shape != (number_of_aps, number_of_ues):
+            self.graph_shape = (number_of_aps, number_of_ues)
+            self.graph = self.graph_generation(number_of_aps, number_of_ues)
         G = clip_abs(G)
         G_T = G.T
         G_conj = torch.conj(G)
@@ -157,9 +152,9 @@ class OlpGnnPowerControl(PowerControl):
             complex_type = torch.complex64
         if self.tpdv['dtype'] == torch.float64:
             complex_type = torch.complex128
-        A1 = torch.matmul(G_T, y1).real.to(complex_type)  # (n_ue * n_ap) * (n_ap * n_ue)
-        A1 = torch.diag(torch.diag(A1))  # (n_ue * n_ue)
-        y1 = torch.matmul(G_dague, A1)  # (n_ap * n_ue) * (n_ue * n_ue)
+        A1 = torch.matmul(G_T, y1).real.to(complex_type)
+        A1 = torch.diag(torch.diag(A1))
+        y1 = torch.matmul(G_dague, A1)
         A2 = torch.matmul(G_T, y2)
         y2 = torch.matmul(G_dague, A2 - torch.diag(torch.diag(A2)))
         power_coef = y1 + y2 + y3
@@ -173,7 +168,7 @@ class OlpGnnPowerControl(PowerControl):
         scaling_power = scaling_power.expand(-1, number_of_ues)
         scaling_power = scaling_power.view(number_of_aps, number_of_ues)
         power_coef /= scaling_power
-        
+
         if return_graph:
             return power_coef, penultimate.view(-1, number_of_aps * number_of_ues), self.graph.clone()
         else:
