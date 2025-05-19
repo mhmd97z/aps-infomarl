@@ -135,9 +135,6 @@ def main(args):
         device = torch.device("cpu")
         torch.set_num_threads(all_args.n_training_threads)
 
-    # if all_args.verbose:
-    print_args(all_args)
-
     # run dir
     run_dir = (
         Path(os.path.split(os.path.dirname(os.path.abspath(__file__)))[0] + "/results")
@@ -212,8 +209,14 @@ if __name__ == "__main__":
     if mp.get_start_method(allow_none=True) != 'spawn':
         mp.set_start_method('spawn', force=True)
 
-    with open("/home/mzi/olp-gnn/data_generation/8strongest/data2.pickle", 'rb') as f:
+    with open("/home/mzi/aps-infomarl/onpolicy/scripts/8strongest_20aps_6ues.pickle", 'rb') as f:
         data_list = pickle.load(f)
+    print("pickled data is retireved")
+
+    for item in data_list:
+        item['channel', 'same_ap', 'channel'].edge_index = item['channel', 'same_ap', 'channel'].edge_index.T
+        item['channel', 'same_ue', 'channel'].edge_index = item['channel', 'same_ue', 'channel'].edge_index.T
+    print("fixed edges")
 
     random.seed(0)
     random.shuffle(data_list)
@@ -223,7 +226,7 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
     test_loader = DataLoader(test_data, batch_size=32, shuffle=False)
     actor, save_dir = main(sys.argv[1:])
-    
+
     optimizer = torch.optim.Adam(actor.parameters(), lr=0.001, weight_decay=1e-4)
     loss_fn = nn.CrossEntropyLoss()
 
@@ -238,9 +241,9 @@ if __name__ == "__main__":
     for data in test_loader:
         data = data.to(torch.device("cuda:0"))
         actions, action_log_probs, rnn_states, action_logits = actor(data, rnn_states, masks)
-        correct += (actions == data['channel'].y).sum().item()
+        correct += (actions.flatten() == data['channel'].y).sum().item()
         size += data['channel'].y.size(0)
-    print("Test Accuracy: {:.4f}".format(correct / size))
+    print("Test Accuracy: {:.4f}".format(correct/size))
 
     for epoch in range(1, 101):
         print("\n ----- Epoch: ", epoch)
@@ -260,7 +263,7 @@ if __name__ == "__main__":
             optimizer.zero_grad()
             data = data.to(torch.device("cuda:0"))
             actions, action_log_probs, rnn_states, action_logits = actor(data, rnn_states, masks)
-            loss = loss_fn(action_logits, data['channel'].y.squeeze(1).long())
+            loss = loss_fn(action_logits, data['channel'].y.long())
             loss.backward()
             optimizer.step()
         print(f"Loss: {loss.item()}")
@@ -270,7 +273,7 @@ if __name__ == "__main__":
         for data in subset_loader:
             data = data.to(torch.device("cuda:0"))
             actions, action_log_probs, rnn_states, action_logits = actor(data, rnn_states, masks)
-            correct += (actions == data['channel'].y).sum().item()
+            correct += (actions.flatten() == data['channel'].y).sum().item()
             size += data['channel'].y.size(0)
         print("Train Accuracy: {:.4f}".format(correct / size))
 
@@ -279,7 +282,7 @@ if __name__ == "__main__":
         for data in test_loader:
             data = data.to(torch.device("cuda:0"))
             actions, action_log_probs, rnn_states, action_logits = actor(data, rnn_states, masks)
-            correct += (actions == data['channel'].y).sum().item()
+            correct += (actions.flatten() == data['channel'].y).sum().item()
             size += data['channel'].y.size(0)
         acc = correct / size
         print("Test Accuracy: {:.4f}".format(acc))

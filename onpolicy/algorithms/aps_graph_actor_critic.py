@@ -156,10 +156,12 @@ class Aps_GR_Actor(nn.Module):
         actor_features = self.gnn_base(graph_batch)
         actor_features = self.base(actor_features)
 
+        # actions, action_log_probs, action_logits = self.act(
         actions, action_log_probs = self.act(
             actor_features, available_actions, deterministic
         )
 
+        # return (actions, action_log_probs, rnn_states, action_logits.probs)
         return (actions, action_log_probs, rnn_states)
 
     def evaluate_actions(

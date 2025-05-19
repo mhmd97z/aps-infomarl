@@ -111,7 +111,7 @@ class ACTLayer(nn.Module):
             actions = action_logits.mode() if deterministic else action_logits.sample()
             action_log_probs = action_logits.log_probs(actions)
 
-        return actions, action_log_probs
+        return actions, action_log_probs # , action_logits
 
     def get_probs(
         self, x: torch.Tensor, available_actions: Optional[torch.tensor] = None

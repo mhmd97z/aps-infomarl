@@ -67,7 +67,8 @@ class Aps(gym.Env):
 
         channel_coef = simulator_info['channel_coef']
         # TODO: aggregate over step length
-        self.datastore.add(obs=channel_coef.mean(dim=0))
+        # self.datastore.add(obs=channel_coef.mean(dim=0))
+        self.datastore.add(obs=channel_coef[-1])
 
         G = self.datastore.get_last_k_elements()['obs']
         # TODO: aggregate over history
@@ -105,6 +106,9 @@ class Aps(gym.Env):
         if self.env_args.if_full_cooperation:
             power_coef_cost.fill_(power_coef_cost.sum())
 
+        power_coef_cost = power_coef_cost.to(dtype=self.env_args.simulation_scenario.float_dtype_sim, 
+                                             device=self.env_args.simulation_scenario.device_sim)
+
         # se cost
         eta = self.env_args.se_coef
         threshold = self.env_args.sinr_threshold
@@ -117,6 +121,9 @@ class Aps(gym.Env):
         se_violation_cost = torch.clip(torch.exp(-eta * constraints), max=500)
         se_violation_cost = se_violation_cost.expand(self.num_aps, -1).clone()
         se_violation_cost = torch.reshape(se_violation_cost, (-1, 1))
+
+        se_violation_cost = se_violation_cost.to(dtype=self.env_args.simulation_scenario.float_dtype_sim, 
+                                             device=self.env_args.simulation_scenario.device_sim)
 
         if self.env_args.if_sum_cost:
             reward = -(se_violation_cost + power_coef_cost).clone().detach()
@@ -171,7 +178,10 @@ class Aps(gym.Env):
         self.simulator.reset()
         obs, state, _, mask, info = self.compute_state_reward()
 
-        return obs, state, mask, info, self.same_ue_edges, self.same_ap_edges
+        if self.if_graph:
+            return obs, state, mask, info, self.same_ue_edges, self.same_ap_edges
+        else:
+            return obs, state, mask, info
 
 
     def process_obs_graph(self, graph):

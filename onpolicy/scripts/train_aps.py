@@ -25,11 +25,11 @@ from onpolicy.envs.env_wrappers import (
     ApsSubprocVecEnv
 )
 
-def make_train_env(all_args: argparse.Namespace):
+def make_train_env(all_args: argparse.Namespace, if_graph=True):
     def get_env_fn(rank: int):
         def init_env():
             if all_args.env_name == "aps":
-                env = Aps(all_args.env_args, if_graph=True)
+                env = Aps(all_args.env_args, if_graph=if_graph)
             else:
                 print(f"Can not support the {all_args.env_name} environment")
                 raise NotImplementedError
@@ -45,7 +45,7 @@ def make_train_env(all_args: argparse.Namespace):
     else:
         if all_args.env_name == "aps":
             return ApsSubprocVecEnv(
-                [get_env_fn(i) for i in range(all_args.n_rollout_threads)]
+                [get_env_fn(i) for i in range(all_args.n_rollout_threads)], if_graph=if_graph
             )
         return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
@@ -212,7 +212,8 @@ def main(args):
 
     # env init
     envs = make_train_env(all_args)
-    eval_envs = make_eval_env(all_args) if all_args.use_eval else None
+    # eval_envs = make_eval_env(all_args) if all_args.use_eval else None
+    eval_envs = None
     num_agents = all_args.env_args.simulation_scenario.number_of_aps * all_args.env_args.simulation_scenario.number_of_ues
     config = {
         "all_args": all_args,

@@ -89,8 +89,9 @@ class ApsRunner(Runner):
                 self.insert(data)
 
             # compute return and update network
-            self.compute()
-            train_infos = self.train()
+            if not self.use_eval:
+                self.compute()
+                train_infos = self.train()
 
             # post process
             total_num_steps = (
@@ -106,18 +107,20 @@ class ApsRunner(Runner):
                 end = time.time()
 
                 avg_ep_rew = np.mean(self.buffer.rewards) * self.episode_length
-                train_infos["average_episode_rewards"] = avg_ep_rew
+                if not self.use_eval:
+                    train_infos["average_episode_rewards"] = avg_ep_rew
                 print(
                     f"Average episode rewards is {avg_ep_rew:.3f} \t"
                     f"Total timesteps: {total_num_steps} \t "
                     f"Percentage complete {total_num_steps / self.num_env_steps * 100:.3f}"
                 )
-                self.log_train(train_infos, total_num_steps)
+                if not self.use_eval:
+                    self.log_train(train_infos, total_num_steps)
                 self.log_env(infos, total_num_steps)
 
             # eval
-            if episode % self.eval_interval == 0 and self.use_eval:
-                self.eval(total_num_steps)
+            # if episode % self.eval_interval == 0 and self.use_eval:
+            #     self.eval(total_num_steps)
 
     def warmup(self):
         # reset env

@@ -1,8 +1,4 @@
-import os, sys
 import torch
-# print("in network_simulator.py: os.getcwd(): ", os.getcwd())
-# sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "../envs/aps/lib")))
-print("in network_simulator.py: sys.path: ", sys.path)
 from channel_manager import NlosChannelManager
 from aps_utils import set_random_seed
 from data_store import DataStore
@@ -70,7 +66,7 @@ class NetworkSimulator:
                     allocated_power, embedding, graph = self.power_control.get_power_coef(G, rho_d, self.serving_mask, return_graph=True)
 
             # to simulate aps, we set the non-activated power coef to zero
-            masked_allocated_power = allocated_power.clone().detach() * self.serving_mask
+            masked_allocated_power = (allocated_power.clone().detach() * self.serving_mask).to(allocated_power)
             # calc power consumption
             transmission_power_consumption = self.power_control.get_transmission_power(masked_allocated_power)
             ap_circuit_power_consumption = self.power_control.get_ap_circuit_power(self.serving_mask)

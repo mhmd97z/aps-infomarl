@@ -8,3 +8,4 @@ out_*
 *.egg-info/
 *.pyc
 results/
+*.pickle

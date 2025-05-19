@@ -1134,18 +1134,26 @@ class GraphSubprocVecEnv(ShareVecEnv):
             frame = [remote.recv() for remote in self.remotes]
             return np.stack(frame)
 
-def apsworker(remote, parent_remote, env_fn_wrapper):
+def apsworker(remote, parent_remote, env_fn_wrapper, if_graph=False):
     """same as worker but for the graph environment"""
     parent_remote.close()
     env = env_fn_wrapper.x()
     while True:
         cmd, data = remote.recv()
         if cmd == "step":
-            obs, state, reward, done, info, mask, same_ue, same_ap = env.step(data)
-            remote.send((obs, state, reward, done, info, mask, same_ue, same_ap))
+            if if_graph:
+                obs, state, reward, done, info, mask, same_ue, same_ap = env.step(data)
+                remote.send((obs, state, reward, done, info, mask, same_ue, same_ap))
+            else:
+                obs, state, reward, done, info, mask= env.step(data)
+                remote.send((obs, state, reward, done, info, mask))
         elif cmd == "reset":
-            obs, state, mask, info, same_ue, same_ap = env.reset()
-            remote.send((obs, state, mask, info, same_ue, same_ap))
+            if if_graph:
+                obs, state, mask, info, same_ue, same_ap = env.reset()
+                remote.send((obs, state, mask, info, same_ue, same_ap))
+            else:
+                obs, state, mask, info = env.reset()
+                remote.send((obs, state, mask, info))
         elif cmd == "render":
             raise NotImplementedError
         elif cmd == "close":
@@ -1164,11 +1172,12 @@ def apsworker(remote, parent_remote, env_fn_wrapper):
             raise NotImplementedError
 
 class ApsSubprocVecEnv(ShareVecEnv):
-    def __init__(self, env_fns, spaces=None):
+    def __init__(self, env_fns, if_graph=False, spaces=None):
         """
         Same as SubprocVecEnv but for graph environment
         envs: list of gym environments to run in subprocesses
         """
+        self.if_graph = if_graph
         self.waiting = False
         self.closed = False
         nenvs = len(env_fns)
@@ -1176,7 +1185,7 @@ class ApsSubprocVecEnv(ShareVecEnv):
         self.ps = [
             Process(
                 target=apsworker,
-                args=(work_remote, remote, CloudpickleWrapper(env_fn)),
+                args=(work_remote, remote, CloudpickleWrapper(env_fn), if_graph),
             )
             for (work_remote, remote, env_fn) in zip(
                 self.work_remotes, self.remotes, env_fns
@@ -1208,25 +1217,41 @@ class ApsSubprocVecEnv(ShareVecEnv):
     def step_wait(self):
         results = [remote.recv() for remote in self.remotes]
         self.waiting = False
-        obs, states, rewards, dones, infos, mask, same_ue, same_ap = zip(*results)
-        return (
-            np.stack(obs), # , Batch.from_data_list(list(obs)),
-            np.stack(states),
-            np.stack(rewards),
-            np.stack(dones),
-            infos,
-            np.stack(mask),
-            np.stack(same_ue),
-            np.stack(same_ap)
-        )
+        if self.if_graph:
+            obs, states, rewards, dones, infos, mask, same_ue, same_ap = zip(*results)
+            return (
+                np.stack(obs), # , Batch.from_data_list(list(obs)),
+                np.stack(states),
+                np.stack(rewards),
+                np.stack(dones),
+                infos,
+                np.stack(mask),
+                np.stack(same_ue),
+                np.stack(same_ap)
+            )
+        else:
+            obs, states, rewards, dones, infos, mask = zip(*results)
+            return (
+                np.stack(obs), # , Batch.from_data_list(list(obs)),
+                np.stack(states),
+                np.stack(rewards),
+                np.stack(dones),
+                infos,
+                np.stack(mask)
+            )
 
     def reset(self):
         for remote in self.remotes:
             remote.send(("reset", None))
         results = [remote.recv() for remote in self.remotes]
-        obs, state, mask, info, same_ue, same_ap = zip(*results)
-        return (np.stack(obs), # Batch.from_data_list(list(obs)), 
-                np.stack(state), np.stack(mask), info, np.stack(same_ue), np.stack(same_ap))
+        if self.if_graph:
+            obs, state, mask, info, same_ue, same_ap = zip(*results)
+            return (np.stack(obs), # Batch.from_data_list(list(obs)), 
+                    np.stack(state), np.stack(mask), info, np.stack(same_ue), np.stack(same_ap))
+        else:
+            obs, state, mask, info = zip(*results)
+            return (np.stack(obs), # Batch.from_data_list(list(obs)), 
+                    np.stack(state), np.stack(mask), info)
 
     def reset_task(self):
         for remote in self.remotes:
