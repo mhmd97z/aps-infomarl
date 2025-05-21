@@ -131,6 +131,10 @@ class ApsRunner(Runner):
         
     @torch.no_grad()
     def collect(self, step: int) -> Tuple[arr, arr, arr, arr, arr, arr]:
+        if self.use_eval:
+            deterministic=True
+        else:
+            deterministic=False
         self.trainer.prep_rollout()
         (
             value,
@@ -143,6 +147,7 @@ class ApsRunner(Runner):
             np.concatenate(self.buffer.rnn_states[step]),
             np.concatenate(self.buffer.rnn_states_critic[step]),
             np.concatenate(self.buffer.masks[step]),
+            deterministic=deterministic
         )
         # [self.envs, agents, dim]
         values = np.array(np.split(_t2n(value), self.n_rollout_threads))
