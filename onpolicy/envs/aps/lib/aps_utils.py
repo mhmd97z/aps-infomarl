@@ -80,6 +80,7 @@ def get_adj(n_ues, n_aps, if_transpose=False):
                     same_ap_edges.append([k1*n_aps+m, k2*n_aps+m])
                     # reverse to make graph unoriented
                     same_ap_edges.append([k2*n_aps+m, k1*n_aps+m])
+        same_ue_edges, same_ap_edges = np.array(same_ue_edges), np.array(same_ap_edges)
     else:
         same_ap_edges = []
         same_ue_edges = []
@@ -92,6 +93,7 @@ def get_adj(n_ues, n_aps, if_transpose=False):
                 elif int(cntr_1 / n_ues) == int(cntr_2 / n_ues):
                     same_ap_edges.append((cntr_1, cntr_2))
                 else:
-                    pass        
+                    pass
+        same_ue_edges, same_ap_edges = np.array(same_ue_edges).transpose(), np.array(same_ap_edges).transpose()
 
-    return np.array(same_ue_edges), np.array(same_ap_edges)
+    return same_ue_edges, same_ap_edges

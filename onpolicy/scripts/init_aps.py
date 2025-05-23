@@ -209,7 +209,7 @@ if __name__ == "__main__":
     if mp.get_start_method(allow_none=True) != 'spawn':
         mp.set_start_method('spawn', force=True)
 
-    with open("/home/mzi/aps-infomarl/onpolicy/scripts/8strongest_20aps_6ues.pickle", 'rb') as f:
+    with open("/home/mzi/aps-infomarl/onpolicy/scripts/8strongest_20aps_6ues_dataset.pickle", 'rb') as f:
         data_list = pickle.load(f)
     print("pickled data is retireved")
 
