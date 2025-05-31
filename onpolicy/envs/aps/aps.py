@@ -154,7 +154,7 @@ class Aps(gym.Env):
             'power_coef_cost': power_coef_cost.mean(),
         }
 
-        return obs.cpu().numpy(), state.cpu().numpy(), reward.cpu().numpy(), mask.cpu().numpy(), info
+        return obs.to(torch.float32).cpu().numpy(), state.to(torch.float32).cpu().numpy(), reward.to(torch.float32).cpu().numpy(), mask.to(torch.float32).cpu().numpy(), info
 
 
     def get_obs_size(self):

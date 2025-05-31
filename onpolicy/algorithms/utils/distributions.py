@@ -84,7 +84,7 @@ class Categorical(nn.Module):
         def init_(m):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0), gain)
 
-        self.linear = init_(nn.Linear(num_inputs, num_outputs).to(torch.float64))
+        self.linear = init_(nn.Linear(num_inputs, num_outputs).to(torch.float32))
 
     def forward(self, x: torch.tensor, available_actions=None):
         x = self.linear(x)

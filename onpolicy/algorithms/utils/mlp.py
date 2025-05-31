@@ -30,12 +30,12 @@ class MLPLayer(nn.Module):
             init_(nn.Linear(input_dim, hidden_size)),
             active_func,
             nn.LayerNorm(hidden_size),
-        ).to(torch.float64)
+        ).to(torch.float32)
         self.fc_h = nn.Sequential(
             init_(nn.Linear(hidden_size, hidden_size)),
             active_func,
             nn.LayerNorm(hidden_size),
-        ).to(torch.float64)
+        ).to(torch.float32)
         self.fc2 = get_clones(self.fc_h, self._layer_N)
 
     def forward(self, x):
@@ -69,7 +69,7 @@ class MLPBase(nn.Module):
             obs_dim = override_obs_dim
 
         if self._use_feature_normalization:
-            self.feature_norm = nn.LayerNorm(obs_dim).to(torch.float64)
+            self.feature_norm = nn.LayerNorm(obs_dim).to(torch.float32)
 
         self.mlp = MLPLayer(
             obs_dim,
