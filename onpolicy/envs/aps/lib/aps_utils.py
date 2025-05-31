@@ -1,7 +1,13 @@
 import torch
 import numpy as np
 import cvxpy as cp
-from math import log10, sqrt
+from math import sqrt
+
+
+def sinr_from_A(A, rho_d):
+    A_diag = (np.abs(np.diag(A)))**2*rho_d
+    A = rho_d*np.linalg.norm(A, axis=1, keepdims=False)**2
+    return A_diag/(1+A-A_diag)
 
 def set_random_seed(seed):
     # Set the seed for CPU and GPU (if using CUDA)
@@ -24,7 +30,7 @@ def clip_abs(a):
 # SOCP problem solver
 # (G_dague, P_G, rho_d) set the problem's constraints
 # t: is the currently computed lower bound sinr
-def opti_OLP(t, G_dague, P_G, rho_d, M, K):
+def opti_OLP(t, G_dague, P_G, rho_d, M, K, mask=None):
     A = cp.Variable(shape=(K, K), complex=True)
     A_diag = cp.Variable(shape=(K, 1), pos=True)
     A_tilde = cp.Variable(shape=(K, K+1), complex=True)
@@ -45,6 +51,13 @@ def opti_OLP(t, G_dague, P_G, rho_d, M, K):
         constraints += [A_diag[i, 0] >= sqrt(t)*cp.pnorm(A_tilde[i, :], 2)]
 
     Delta = G_dague @ A + P_G @ U
+
+    # mask the unconnected channels
+    if mask is not None:
+        for m in range(M):
+            for k in range(K):
+                if not mask[m, k]:
+                    constraints += [Delta[m, k] == 0]
 
     for m in range(M):
         constraints += [cp.pnorm(Delta[m, :], 2) <= 1]

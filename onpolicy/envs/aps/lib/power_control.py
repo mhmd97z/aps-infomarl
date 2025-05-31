@@ -6,8 +6,9 @@ import numpy as np
 from torch_geometric.data import HeteroData
 sys.path.append(os.path.abspath(os.path.join(os.getcwd(), "../envs/aps/lib")))
 from gnn_olp.gnn import FastGNNLinearPrecodingLightning
-from aps_utils import opti_OLP, clip_abs, get_adj
+from aps_utils import opti_OLP, clip_abs, get_adj, sinr_from_A
 
+feas_sinr_tol, feas_power_tol = 1e-3, 1e-6
 
 class PowerControl:
     def __init__(self, conf):
@@ -40,8 +41,8 @@ class PowerControl:
     def get_ap_circuit_power(self, mask):
         return torch.sum(mask, dim=1).sign() * self.conf.ap_constant_power_consumption * self.conf.ap_radiation_power
 
-    def get_optimal_sinr(self, G, rho_d):
-        low, up, eps = 0, 10**6, 0.01
+    def get_optimal_sinr(self, G, rho_d, mask=None):
+        low, up, eps = 0, 10**6, 1e-6
         M, K = G.shape
         G = G.cpu().numpy()
         rho_d = rho_d.cpu().numpy()
@@ -58,12 +59,23 @@ class PowerControl:
         upb = max(low, up)
         ite = 0
         best_SINR = 0.0
-        while abs(lowb-upb) > eps:
+        found_feasible_solution = False
+        while abs(lowb-upb) > eps or not found_feasible_solution:
             ite += 1
             tSINR = (lowb+upb) / 2
             try:
                 prob, A_test, U_test = opti_OLP(
-                    tSINR, G_dague, P_G, rho_d, M, K)
+                    tSINR, G_dague, P_G, rho_d, M, K, mask)
+                is_feasible = False
+                if prob.value is not None and prob.value < np.inf:
+                    is_feasible = True
+                    min_sinr = sinr_from_A(A_test.value, rho_d).min()
+                    if min_sinr < tSINR * (1-feas_sinr_tol):
+                        is_feasible = False
+                    Delta = G_dague @ A_test.value + P_G @ U_test.value
+                    max_power = np.linalg.norm(Delta, ord=2, axis=1).max()
+                    if max_power > 1+feas_power_tol:
+                        is_feasible = False
                 is_feasible = prob.value < np.inf
             except:
                 is_feasible = False
@@ -72,10 +84,13 @@ class PowerControl:
                 lowb = tSINR
                 A_opt, U_opt = A_test.value, U_test.value
                 best_SINR = tSINR
+                found_feasible_solution = True
             else:
                 upb = tSINR
 
         Delta_opt = G_dague @ A_opt + P_G @ U_opt
+        if mask is not None:
+            Delta_opt = np.multiply(Delta_opt, mask)
         best_SINR = 10*np.log10(best_SINR)
 
         return best_SINR, Delta_opt

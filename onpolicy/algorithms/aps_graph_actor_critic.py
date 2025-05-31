@@ -93,7 +93,7 @@ class Aps_GR_Actor(nn.Module):
         self._recurrent_N = args.recurrent_N
         self.split_batch = split_batch
         self.max_batch_size = max_batch_size
-        self.tpdv = dict(dtype=torch.float32, device=device)
+        self.tpdv = dict(dtype=torch.float64, device=device)
 
         obs_shape = get_shape_from_obs_space(obs_space)
         
@@ -101,7 +101,7 @@ class Aps_GR_Actor(nn.Module):
         gnn_out_dim = self.gnn_base.out_dim  # output shape from gnns
         # mlp_base_in_dim = gnn_out_dim + obs_shape[0]
         # self.base = MLPBase(args, obs_shape=None, override_obs_dim=mlp_base_in_dim)
-        self.base = MLPBase(args, obs_shape=gnn_out_dim, override_obs_dim=None)
+        self.base = MLPBase(args, obs_shape=gnn_out_dim, override_obs_dim=None).to(torch.float64)
 
         if self._use_naive_recurrent_policy or self._use_recurrent_policy:
             self.rnn = RNNLayer(
@@ -255,7 +255,7 @@ class Aps_GR_Critic(nn.Module):
         self._use_popart = args.use_popart
         self.split_batch = split_batch
         self.max_batch_size = max_batch_size
-        self.tpdv = dict(dtype=torch.float32, device=device)
+        self.tpdv = dict(dtype=torch.float64, device=device)
         init_method = [nn.init.xavier_uniform_, nn.init.orthogonal_][
             self._use_orthogonal
         ]
@@ -287,9 +287,9 @@ class Aps_GR_Critic(nn.Module):
             return init(m, init_method, lambda x: nn.init.constant_(x, 0))
 
         if self._use_popart:
-            self.v_out = init_(PopArt(self.hidden_size, 1, device=device))
+            self.v_out = init_(PopArt(self.hidden_size, 1, device=device).to(torch.float64))
         else:
-            self.v_out = init_(nn.Linear(self.hidden_size, 1))
+            self.v_out = init_(nn.Linear(self.hidden_size, 1).to(torch.float64))
 
         self.to(device)
 

@@ -598,12 +598,12 @@ class Aps_GNN(nn.Module):
                 ('channel', 'same_ap', 'channel'):
                 TransformerConv(in_channels, out_channels,
                                 heads=heads, dropout=0.3, root_weight=True, concat=True)
-            }, aggr=aggr)
+            }, aggr=aggr).to(torch.float64)
             self.convs.append(conv)
-            self.norms.append(LayerNorm(hc[i+1]))
+            self.norms.append(LayerNorm(hc[i+1]).to(torch.float64))
 
-        self.lin0 = Linear(2, 128)
-        self.lin1 = Linear(sum(hc), 64)
+        self.lin0 = Linear(2, 128).to(torch.float64)
+        self.lin1 = Linear(sum(hc), 64).to(torch.float64)
         self.out_dim = 64
 
     def init_hidden(self):

@@ -49,8 +49,9 @@ class NetworkSimulator:
             # simulator should know everything!! => calculating channel coef with full obsevability
             G, masked_G, rho_d = self.channel_manager.step()  # adding small-scale measurements
             if self.scenario_conf.precoding_algorithm == "optimal":
-                _, allocated_power = self.power_control.get_optimal_sinr(G, rho_d) # allocating power
+                _, allocated_power = self.power_control.get_optimal_sinr(G, rho_d, self.serving_mask.clone().cpu().numpy()) # allocating power
                 embedding, graph = None, None
+                allocated_power = torch.tensor(allocated_power).to(G)
             else:
                 if self.scenario_conf.if_remove_off_aps_form_olp:
                     off_aps = (self.serving_mask == 0).all(dim=1).nonzero(as_tuple=True)[0]
