@@ -76,7 +76,6 @@ class PowerControl:
                     max_power = np.linalg.norm(Delta, ord=2, axis=1).max()
                     if max_power > 1+feas_power_tol:
                         is_feasible = False
-                is_feasible = prob.value < np.inf
             except:
                 is_feasible = False
 

@@ -38,16 +38,11 @@ def make_train_env(all_args: argparse.Namespace, if_graph=True):
 
         return init_env
 
-    if all_args.n_rollout_threads == 1:
-        if all_args.env_name == "aps":
-            raise
-        return DummyVecEnv([get_env_fn(0)])
-    else:
-        if all_args.env_name == "aps":
-            return ApsSubprocVecEnv(
-                [get_env_fn(i) for i in range(all_args.n_rollout_threads)], if_graph=if_graph
-            )
-        return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+    if all_args.env_name == "aps":
+        return ApsSubprocVecEnv(
+            [get_env_fn(i) for i in range(all_args.n_rollout_threads)], if_graph=if_graph
+        )
+    return SubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
 
 
 def make_eval_env(all_args: argparse.Namespace):
