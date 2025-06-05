@@ -209,14 +209,14 @@ if __name__ == "__main__":
     if mp.get_start_method(allow_none=True) != 'spawn':
         mp.set_start_method('spawn', force=True)
 
-    with open("/home/mzi/aps-infomarl/onpolicy/scripts/8strongest_20aps_6ues_dataset.pickle", 'rb') as f:
+    with open("/home/mzi/aps-infomarl/onpolicy/scripts/pret_dataset/16strongest_20aps_6ues_dataset.pickle", 'rb') as f:
         data_list = pickle.load(f)
     print("pickled data is retireved")
 
-    for item in data_list:
-        item['channel', 'same_ap', 'channel'].edge_index = item['channel', 'same_ap', 'channel'].edge_index.T
-        item['channel', 'same_ue', 'channel'].edge_index = item['channel', 'same_ue', 'channel'].edge_index.T
-    print("fixed edges")
+    # for item in data_list:
+    #     item['channel', 'same_ap', 'channel'].edge_index = item['channel', 'same_ap', 'channel'].edge_index.T
+    #     item['channel', 'same_ue', 'channel'].edge_index = item['channel', 'same_ue', 'channel'].edge_index.T
+    # print("fixed edges")
 
     random.seed(0)
     random.shuffle(data_list)

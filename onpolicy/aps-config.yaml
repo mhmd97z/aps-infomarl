@@ -10,9 +10,9 @@ env_args:
   se_coef: 20 # 10-20 for step, 5 for exponential
   power_coef: 5
   sec_to_pc_switch_threshold: 10.0
-  if_use_local_power_sum: True
+  if_use_local_power_sum: False
   if_sum_cost: False
-  if_connection_cost: False
+  if_connection_cost: True
   if_full_cooperation: False
 
   simulation_scenario:
@@ -26,7 +26,7 @@ env_args:
     data_normalization_config: /home/mzi/aps-infomarl/onpolicy/envs/aps/lib/gnn_olp/partial_model/normalization_config.yaml
     precoding_algorithm: olp # olp, mrt, optimal
     seed: 100
-    float_dtype_sim: torch.float32
+    float_dtype_sim: torch.float64
     ap_radiation_power: 0.2
     signal_transmission_efficiency: 0.4
     ap_constant_power_consumption: 0.2

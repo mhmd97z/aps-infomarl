@@ -5,12 +5,12 @@ import gym
 import torch
 from torch import Tensor
 import torch.nn as nn
-from onpolicy.algorithms.utils.util import init, check
-from onpolicy.algorithms.utils.gnn import Aps_GNN
-from onpolicy.algorithms.utils.mlp import MLPBase
-from onpolicy.algorithms.utils.rnn import RNNLayer
-from onpolicy.algorithms.utils.act import ACTLayer
-from onpolicy.algorithms.utils.popart import PopArt
+from onpolicy.algorithms.gnnmappo.utils.util import init, check
+from onpolicy.algorithms.gnnmappo.utils.gnn import Aps_GNN
+from onpolicy.algorithms.gnnmappo.utils.mlp import MLPBase
+from onpolicy.algorithms.gnnmappo.utils.rnn import RNNLayer
+from onpolicy.algorithms.gnnmappo.utils.act import ACTLayer
+from onpolicy.algorithms.gnnmappo.utils.popart import PopArt
 from onpolicy.utils.util import get_shape_from_obs_space
 from torch_geometric.data import HeteroData, Batch
 

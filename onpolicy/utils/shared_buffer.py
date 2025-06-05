@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from numpy import ndarray as arr
 from typing import Optional, Tuple, Generator
-from onpolicy.algorithms.utils.popart import PopArt
+from onpolicy.algorithms.gnnmappo.utils.popart import PopArt
 from onpolicy.utils.util import get_shape_from_obs_space, get_shape_from_act_space
 
 

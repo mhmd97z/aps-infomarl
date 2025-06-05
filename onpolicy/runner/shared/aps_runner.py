@@ -1,11 +1,9 @@
 import time
-import numpy as np
-from numpy import ndarray as arr
-from typing import Tuple
 import torch
+import numpy as np
+from typing import Tuple
+from numpy import ndarray as arr
 from onpolicy.runner.shared.base_runner import Runner
-import wandb
-import imageio
 from torch_geometric.data import HeteroData, Batch
 
 
@@ -56,30 +54,33 @@ class ApsRunner(Runner):
                     actions,
                     action_log_probs,
                     rnn_states,
-                    rnn_states_critic,
-                    actions_env,
+                    rnn_states_critic
                 ) = self.collect(step)
 
                 # Obs reward and next obs
-                obs, states, rewards, dones, infos, mask, same_ue, same_ap = self.envs.step(
-                    actions_env
-                )
-                agent_id = torch.arange(states.shape[1]).unsqueeze(1).repeat(1, states.shape[0]).T.unsqueeze(2).numpy()
-
-                batch = generate_graph_batch(obs, same_ap, same_ue, agent_id)
-
-                data = (
-                    batch,
-                    agent_id,
-                    rewards,
-                    dones,
-                    infos,
-                    values,
-                    actions,
-                    action_log_probs,
-                    rnn_states,
-                    rnn_states_critic
-                )
+                if self.all_args.algorithm_name == "gnnmappo":
+                    obs, states, rewards, dones, infos, mask, same_ue, same_ap = self.envs.step(
+                        actions.copy()
+                    )
+                    agent_id = torch.arange(states.shape[1]).unsqueeze(1).repeat(1, states.shape[0]).T.unsqueeze(2).numpy()
+                    batch = generate_graph_batch(obs, same_ap, same_ue, agent_id)
+                    data = (
+                        batch,
+                        agent_id,
+                        rewards,
+                        dones,
+                        infos,
+                        values,
+                        actions,
+                        action_log_probs,
+                        rnn_states,
+                        rnn_states_critic
+                    )
+                else:
+                    obs, share_obs, rewards, dones, infos, available_actions = self.envs.step(actions)
+                    data = obs, share_obs, rewards, dones, infos, available_actions, \
+                       values, actions, action_log_probs, \
+                       rnn_states, rnn_states_critic
 
                 # insert data into buffer
                 self.insert(data)
@@ -114,38 +115,54 @@ class ApsRunner(Runner):
                     self.log_train(train_infos, total_num_steps)
                 self.log_env(infos, total_num_steps)
 
-            # eval
-            # if episode % self.eval_interval == 0 and self.use_eval:
-            #     self.eval(total_num_steps)
-
     def warmup(self):
-        # reset env
-        obs, state, mask, info, same_ue, same_ap = self.envs.reset()
-        agent_id = torch.arange(state.shape[1]).unsqueeze(1).repeat(1, state.shape[0]).T.unsqueeze(2).numpy()
-        batch = generate_graph_batch(obs, same_ap, same_ue, agent_id)
-        self.buffer.graph_storage.set_graph(0, batch)
-        
+        if self.all_args.algorithm_name == "gnnmappo":
+            obs, state, _, _, same_ue, same_ap = self.envs.reset()
+            agent_id = torch.arange(state.shape[1]).unsqueeze(1).repeat(1, state.shape[0]).T.unsqueeze(2).numpy()
+            batch = generate_graph_batch(obs, same_ap, same_ue, agent_id)
+            self.buffer.graph_storage.set_graph(0, batch)
+        else:
+            obs, share_obs, available_actions, _ = self.envs.reset()
+            if not self.use_centralized_V:
+                share_obs = obs
+
+            self.buffer.share_obs[0] = share_obs.copy()
+            self.buffer.obs[0] = obs.copy()
+            self.buffer.available_actions[0] = available_actions.copy()
+
     @torch.no_grad()
     def collect(self, step: int) -> Tuple[arr, arr, arr, arr, arr, arr]:
         if self.use_eval:
             deterministic=True
         else:
             deterministic=False
-        self.trainer.prep_rollout()
-        (
-            value,
-            action,
-            action_log_prob,
-            rnn_states,
-            rnn_states_critic,
-        ) = self.trainer.policy.get_actions(
-            self.buffer.graph_storage[step],
-            np.concatenate(self.buffer.rnn_states[step]),
-            np.concatenate(self.buffer.rnn_states_critic[step]),
-            np.concatenate(self.buffer.masks[step]),
-            deterministic=deterministic
-        )
-        # [self.envs, agents, dim]
+        if self.all_args.algorithm_name == "gnnmappo":
+            self.trainer.prep_rollout()
+            (
+                value,
+                action,
+                action_log_prob,
+                rnn_states,
+                rnn_states_critic,
+            ) = self.trainer.policy.get_actions(
+                self.buffer.graph_storage[step],
+                np.concatenate(self.buffer.rnn_states[step]),
+                np.concatenate(self.buffer.rnn_states_critic[step]),
+                np.concatenate(self.buffer.masks[step]),
+                deterministic=deterministic
+            )
+        else:
+            value, action, action_log_prob, rnn_states, rnn_states_critic \
+            = self.trainer.policy.get_actions(
+                np.concatenate(self.buffer.share_obs[step]),
+                np.concatenate(self.buffer.obs[step]),
+                np.concatenate(self.buffer.rnn_states[step]),
+                np.concatenate(self.buffer.rnn_states_critic[step]),
+                np.concatenate(self.buffer.masks[step]),
+                np.concatenate(self.buffer.available_actions[step]),
+                deterministic=deterministic
+            )
+        
         values = np.array(np.split(_t2n(value), self.n_rollout_threads))
         actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
         action_log_probs = np.array(
@@ -156,63 +173,100 @@ class ApsRunner(Runner):
             np.split(_t2n(rnn_states_critic), self.n_rollout_threads)
         )
 
-        actions_env = actions.copy()
-
         return (
             values,
             actions,
             action_log_probs,
             rnn_states,
-            rnn_states_critic,
-            actions_env,
+            rnn_states_critic
         )
 
     def insert(self, data):
-        (
-            batch,
-            agent_id,
-            rewards,
-            dones,
-            infos,
-            values,
-            actions,
-            action_log_probs,
-            rnn_states,
-            rnn_states_critic,
-        ) = data
+        if self.all_args.algorithm_name == "gnnmappo":
+            (
+                batch,
+                agent_id,
+                rewards,
+                dones,
+                infos,
+                values,
+                actions,
+                action_log_probs,
+                rnn_states,
+                rnn_states_critic,
+            ) = data
 
-        rnn_states[dones == True] = np.zeros(
-            ((dones == True).sum(), self.recurrent_N, self.hidden_size),
-            dtype=np.float32,
-        )
-        rnn_states_critic[dones == True] = np.zeros(
-            ((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]),
-            dtype=np.float32,
-        )
-        masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
-        masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+            rnn_states[dones == True] = np.zeros(
+                ((dones == True).sum(), self.recurrent_N, self.hidden_size),
+                dtype=np.float32,
+            )
+            rnn_states_critic[dones == True] = np.zeros(
+                ((dones == True).sum(), *self.buffer.rnn_states_critic.shape[3:]),
+                dtype=np.float32,
+            )
+            masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
 
-        self.buffer.insert(
-            batch,
-            agent_id,
-            rnn_states,
-            rnn_states_critic,
-            actions,
-            action_log_probs,
-            values,
-            rewards,
-            masks,
-        )
+            self.buffer.insert(
+                batch,
+                agent_id,
+                rnn_states,
+                rnn_states_critic,
+                actions,
+                action_log_probs,
+                values,
+                rewards,
+                masks,
+            )
+        else:
+            obs, share_obs, rewards, dones, infos, available_actions, \
+            values, actions, action_log_probs, rnn_states, rnn_states_critic = data
+
+            dones_env = np.all(dones, axis=1)
+
+            rnn_states[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, self.recurrent_N, self.hidden_size), dtype=np.float32)
+            rnn_states_critic[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, *self.buffer.rnn_states_critic.shape[3:]), dtype=np.float32)
+
+            masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            masks[dones_env == True] = np.zeros(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
+
+            active_masks = np.ones((self.n_rollout_threads, self.num_agents, 1), dtype=np.float32)
+            active_masks[dones == True] = np.zeros(((dones == True).sum(), 1), dtype=np.float32)
+            active_masks[dones_env == True] = np.ones(((dones_env == True).sum(), self.num_agents, 1), dtype=np.float32)
+
+            if not self.use_centralized_V:
+                share_obs = obs
+
+            self.buffer.insert(share_obs, obs, rnn_states, rnn_states_critic,
+                            actions, action_log_probs, values, rewards, masks, active_masks=active_masks, 
+                            available_actions=available_actions)
 
     @torch.no_grad()
     def compute(self):
         """Calculate returns for the collected data."""
         self.trainer.prep_rollout()
-        next_values = self.trainer.policy.get_values(
-            self.buffer.graph_storage[-1],
-            np.concatenate(self.buffer.rnn_states_critic[-1]),
-            np.concatenate(self.buffer.masks[-1]),
-        )
+        if self.all_args.algorithm_name == "gnnmappo":
+            next_values = self.trainer.policy.get_values(
+                self.buffer.graph_storage[-1],
+                np.concatenate(self.buffer.rnn_states_critic[-1]),
+                np.concatenate(self.buffer.masks[-1]),
+            )
+        else:
+            if self.buffer.available_actions is None:
+                next_values = self.trainer.policy.get_values(
+                    np.concatenate(self.buffer.share_obs[-1]),
+                    np.concatenate(self.buffer.obs[-1]),
+                    np.concatenate(self.buffer.rnn_states_critic[-1]),
+                    np.concatenate(self.buffer.masks[-1])
+                )
+            else:
+                next_values = self.trainer.policy.get_values(
+                    np.concatenate(self.buffer.share_obs[-1]),
+                    np.concatenate(self.buffer.obs[-1]),
+                    np.concatenate(self.buffer.rnn_states_critic[-1]),
+                    np.concatenate(self.buffer.masks[-1]),
+                    np.concatenate(self.buffer.available_actions[-1])
+                )
         next_values = np.array(np.split(_t2n(next_values), self.n_rollout_threads))
         self.buffer.compute_returns(next_values, self.trainer.value_normalizer)
 
@@ -302,135 +356,6 @@ class ApsRunner(Runner):
             + str(eval_average_episode_rewards)
         )
         self.log_env(eval_env_infos, total_num_steps)
-
-    @torch.no_grad()
-    def render(self, get_metrics: bool = False):
-        raise
-        """
-        Visualize the env.
-        get_metrics: bool (default=False)
-            if True, just return the metrics of the env and don't render.
-        """
-        envs = self.envs
-
-        all_frames = []
-        rewards_arr, success_rates_arr, num_collisions_arr, frac_episode_arr = (
-            [],
-            [],
-            [],
-            [],
-        )
-
-        for episode in range(self.all_args.render_episodes):
-            obs, agent_id, node_obs, adj = envs.reset()
-            if not get_metrics:
-                if self.all_args.save_gifs:
-                    image = envs.render("rgb_array")[0][0]
-                    all_frames.append(image)
-                else:
-                    envs.render("human")
-
-            rnn_states = np.zeros(
-                (
-                    self.n_rollout_threads,
-                    self.num_agents,
-                    self.recurrent_N,
-                    self.hidden_size,
-                ),
-                dtype=np.float32,
-            )
-            masks = np.ones(
-                (self.n_rollout_threads, self.num_agents, 1), dtype=np.float32
-            )
-
-            episode_rewards = []
-
-            for step in range(self.episode_length):
-                calc_start = time.time()
-
-                self.trainer.prep_rollout()
-                action, rnn_states = self.trainer.policy.act(
-                    np.concatenate(obs),
-                    np.concatenate(node_obs),
-                    np.concatenate(adj),
-                    np.concatenate(agent_id),
-                    np.concatenate(rnn_states),
-                    np.concatenate(masks),
-                    deterministic=True,
-                )
-                actions = np.array(np.split(_t2n(action), self.n_rollout_threads))
-                rnn_states = np.array(
-                    np.split(_t2n(rnn_states), self.n_rollout_threads)
-                )
-
-                if envs.action_space[0].__class__.__name__ == "MultiDiscrete":
-                    for i in range(envs.action_space[0].shape):
-                        uc_actions_env = np.eye(envs.action_space[0].high[i] + 1)[
-                            actions[:, :, i]
-                        ]
-                        if i == 0:
-                            actions_env = uc_actions_env
-                        else:
-                            actions_env = np.concatenate(
-                                (actions_env, uc_actions_env), axis=2
-                            )
-                elif envs.action_space[0].__class__.__name__ == "Discrete":
-                    actions_env = np.squeeze(np.eye(envs.action_space[0].n)[actions], 2)
-                else:
-                    raise NotImplementedError
-
-                # Obser reward and next obs
-                obs, agent_id, node_obs, adj, rewards, dones, infos = envs.step(
-                    actions_env
-                )
-                episode_rewards.append(rewards)
-
-                rnn_states[dones == True] = np.zeros(
-                    ((dones == True).sum(), self.recurrent_N, self.hidden_size),
-                    dtype=np.float32,
-                )
-                masks = np.ones(
-                    (self.n_rollout_threads, self.num_agents, 1), dtype=np.float32
-                )
-                masks[dones == True] = np.zeros(
-                    ((dones == True).sum(), 1), dtype=np.float32
-                )
-
-                if not get_metrics:
-                    if self.all_args.save_gifs:
-                        image = envs.render("rgb_array")[0][0]
-                        all_frames.append(image)
-                        calc_end = time.time()
-                        elapsed = calc_end - calc_start
-                        if elapsed < self.all_args.ifi:
-                            time.sleep(self.all_args.ifi - elapsed)
-                    else:
-                        envs.render("human")
-
-            env_infos = self.process_infos(infos)
-            # print('_'*50)
-            num_collisions = self.get_collisions(env_infos)
-            frac, success = self.get_fraction_episodes(env_infos)
-            rewards_arr.append(np.mean(np.sum(np.array(episode_rewards), axis=0)))
-            frac_episode_arr.append(np.mean(frac))
-            success_rates_arr.append(success)
-            num_collisions_arr.append(num_collisions)
-            # print(np.mean(frac), success)
-            # print("Average episode rewards is: " +
-            # str(np.mean(np.sum(np.array(episode_rewards), axis=0))))
-
-        print(rewards_arr)
-        print(frac_episode_arr)
-        print(success_rates_arr)
-        print(num_collisions_arr)
-
-        if not get_metrics:
-            if self.all_args.save_gifs:
-                imageio.mimsave(
-                    str(self.gif_dir) + "/render.gif",
-                    all_frames,
-                    duration=self.all_args.ifi,
-                )
 
     def log_env(self, env_infos, total_num_steps, prefix=""):
         """

@@ -6,9 +6,6 @@ import torch
 
 # from torch.utils.tensorboard import SummaryWriter
 from tensorboardX import SummaryWriter  # tensorboardX to work with macos
-from onpolicy.utils.shared_buffer import SharedReplayBuffer
-from onpolicy.utils.graph_buffer import GraphReplayBuffer
-from onpolicy.utils.aps_graph_buffer import ApsReplayBuffer
 
 def _t2n(x):
     """Convert torch tensor to a numpy array."""
@@ -56,31 +53,14 @@ class Runner(object):
 
         # dir
         self.model_dir = self.all_args.model_dir
-
-        # if not testing model
-        if not self.use_render:
-            if self.use_wandb:
-                self.save_dir = str(wandb.run.dir)
-                self.run_dir = str(wandb.run.dir)
-            else:
-                self.run_dir = config["run_dir"]
-                self.log_dir = str(self.run_dir / "logs")
-                if not os.path.exists(self.log_dir):
-                    os.makedirs(self.log_dir)
-                self.writter = SummaryWriter(self.log_dir)
-                self.save_dir = str(self.run_dir / "models")
-                if not os.path.exists(self.save_dir):
-                    os.makedirs(self.save_dir)
-
-        if self.all_args.env_name == "GraphMPE":
-            from onpolicy.algorithms.graph_mappo import GR_MAPPO as TrainAlgo
-            from onpolicy.algorithms.graph_MAPPOPolicy import GR_MAPPOPolicy as Policy
-        elif self.all_args.env_name == "aps":
-            from onpolicy.algorithms.graph_aps_mappo import GR_MAPPO as TrainAlgo
-            from onpolicy.algorithms.graph_aps_MAPPOPolicy import GR_MAPPOPolicy as Policy
-        else:
-            from onpolicy.algorithms.mappo import R_MAPPO as TrainAlgo
-            from onpolicy.algorithms.MAPPOPolicy import R_MAPPOPolicy as Policy
+        self.run_dir = config["run_dir"]
+        self.log_dir = str(self.run_dir / "logs")
+        if not os.path.exists(self.log_dir):
+            os.makedirs(self.log_dir)
+        self.writter = SummaryWriter(self.log_dir)
+        self.save_dir = str(self.run_dir / "models")
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
 
         # NOTE change variable input here
         if self.use_centralized_V:
@@ -88,18 +68,9 @@ class Runner(object):
         else:
             share_observation_space = self.envs.observation_space[0]
 
-        # policy network
-        if self.all_args.env_name == "GraphMPE":
-            self.policy = Policy(
-                self.all_args,
-                self.envs.observation_space[0],
-                share_observation_space,
-                self.envs.node_observation_space[0],
-                self.envs.edge_observation_space[0],
-                self.envs.action_space[0],
-                device=self.device,
-            )
-        elif self.all_args.env_name == "aps":
+        if self.all_args.algorithm_name == "gnnmappo":
+            from onpolicy.algorithms.gnnmappo.graph_aps_mappo import GR_MAPPO as TrainAlgo
+            from onpolicy.algorithms.gnnmappo.graph_aps_MAPPOPolicy import GR_MAPPOPolicy as Policy
             self.policy = Policy(
                 self.all_args,
                 self.envs.observation_space[0],
@@ -107,51 +78,47 @@ class Runner(object):
                 self.envs.action_space[0],
                 device=self.device,
             )
+            if self.model_dir is not None:
+                print(f"Restoring from checkpoint stored in {self.model_dir}")
+                self.restore()
+            self.trainer = TrainAlgo(self.all_args, self.policy, device=self.device)
+            from onpolicy.utils.gnnmappo_graph_buffer import GnnMappoReplayBuffer
+            self.buffer = GnnMappoReplayBuffer(
+                self.all_args,
+                self.num_agents,
+                self.envs.observation_space[0],
+                share_observation_space,
+                self.envs.action_space[0],
+            )
+
+        elif self.all_args.algorithm_name == "fmat":
+            from onpolicy.algorithms.fmat.mat_trainer import MATTrainer as TrainAlgo
+            from onpolicy.algorithms.fmat.transformer_policy import TransformerPolicy as Policy
+            self.policy = Policy(
+                self.all_args,
+                self.envs.observation_space[0],
+                share_observation_space,
+                self.envs.action_space[0],
+                self.num_agents,
+                device=self.device,
+            )
+            if self.model_dir is not None:
+                print(f"Restoring from checkpoint stored in {self.model_dir}")
+                self.restore()
+            self.trainer = TrainAlgo(self.all_args, self.policy,  self.num_agents, device=self.device)
+            from onpolicy.utils.fmat_graph_buffer import FmatReplayBuffer
+            self.buffer = FmatReplayBuffer(
+                self.all_args,
+                self.num_agents,
+                self.envs.observation_space[0],
+                share_observation_space,
+                self.envs.action_space[0],
+                self.all_args.env_name
+            )
+
         else:
-            self.policy = Policy(
-                self.all_args,
-                self.envs.observation_space[0],
-                share_observation_space,
-                self.envs.action_space[0],
-                device=self.device,
-            )
-
-        if self.model_dir is not None:
-            print(f"Restoring from checkpoint stored in {self.model_dir}")
-            self.restore()
-            self.gif_dir = self.model_dir
-
-        # algorithm
-        self.trainer = TrainAlgo(self.all_args, self.policy, device=self.device)
-
-        # buffer
-        if self.all_args.env_name == "GraphMPE":
-            self.buffer = GraphReplayBuffer(
-                self.all_args,
-                self.num_agents,
-                self.envs.observation_space[0],
-                share_observation_space,
-                self.envs.node_observation_space[0],
-                self.envs.agent_id_observation_space[0],
-                self.envs.share_agent_id_observation_space[0],
-                self.envs.adj_observation_space[0],
-                self.envs.action_space[0],
-            )
-        elif self.all_args.env_name == "aps":
-            self.buffer = ApsReplayBuffer(
-                self.all_args,
-                self.num_agents,
-                self.envs.observation_space[0],
-                share_observation_space,
-                self.envs.action_space[0],
-            )
-        else:
-            self.buffer = SharedReplayBuffer(
-                self.all_args,
-                self.num_agents,
-                self.envs.observation_space[0],
-                share_observation_space,
-                self.envs.action_space[0],
+            raise NotImplementedError(
+                f"Algorithm {self.all_args.algorithm_name} is not supported."
             )
 
     def run(self):

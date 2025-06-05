@@ -173,7 +173,7 @@ def get_config():
 
     # prepare parameters
     parser.add_argument(
-        "--algorithm_name", type=str, default="mappo", choices=["rmappo", "mappo", "kstrongest"]
+        "--algorithm_name", type=str, default="mappo", choices=["gnnmappo", "kstrongest", "fmat"]
     )
 
     parser.add_argument(
@@ -253,8 +253,8 @@ def get_config():
     parser.add_argument(
         "--env_name",
         type=str,
-        default="MPE",
-        choices=["MPE", "GraphMPE", "aps"],
+        default="aps",
+        choices=["aps"],
         help="specify the name of environment",
     )
     parser.add_argument(
@@ -433,6 +433,11 @@ def get_config():
     parser.add_argument("--weight_decay", type=float, default=0)
 
     # ppo parameters
+    parser.add_argument("--entr_lr", type=float, default=0.0001,
+        help='learning rate of entropy optimizer (default: 1e-3)'
+    )
+    parser.add_argument("--tar_en_coef", type=float, default=0.5,
+                        help='target entropy coefficient')
     parser.add_argument(
         "--ppo_epoch", type=int, default=15, help="number of ppo epochs (default: 15)"
     )

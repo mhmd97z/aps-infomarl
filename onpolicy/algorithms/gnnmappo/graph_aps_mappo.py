@@ -5,12 +5,9 @@ from typing import Tuple
 import torch
 from torch import Tensor
 import torch.nn as nn
-from onpolicy.algorithms.graph_MAPPOPolicy import GR_MAPPOPolicy
-from onpolicy.utils.graph_buffer import GraphReplayBuffer
 from onpolicy.utils.util import get_grad_norm, huber_loss, mse_loss
 from onpolicy.utils.valuenorm import ValueNorm
-from onpolicy.algorithms.utils.util import check
-import torch.jit as jit
+from onpolicy.algorithms.gnnmappo.utils.util import check
 import torch.cuda.amp as amp
 
 class GR_MAPPO():
@@ -24,8 +21,8 @@ class GR_MAPPO():
             Specifies the device to run on (cpu/gpu).
     """
     def __init__(self, 
-                args:argparse.Namespace, 
-                policy:GR_MAPPOPolicy,
+                args, 
+                policy,
                 device=torch.device("cpu")) -> None:
 
         self.device = device
@@ -228,7 +225,7 @@ class GR_MAPPO():
                 actor_backward_time, critic_backward_time)
 
     def train(self, 
-            buffer:GraphReplayBuffer, 
+            buffer, 
             update_actor:bool=True):
         """
             Perform a training update using minibatch GD.

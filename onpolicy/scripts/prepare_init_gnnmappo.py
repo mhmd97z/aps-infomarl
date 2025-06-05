@@ -65,7 +65,7 @@ if __name__ == "__main__":
     action = np.ones((n_envs, n_aps, n_ues))
     data_list = []
     episodes = 100
-    k = 8
+    k = 4
 
     same_ue_edges, same_ap_edges = get_adj(n_ues, n_aps, if_transpose=False)
     for episode in range(200):
@@ -89,6 +89,6 @@ if __name__ == "__main__":
 
                 data_list.append(data_)
 
-    print(f"saving at /home/mzi/aps-infomarl/onpolicy/scripts/{k}strongest_{n_aps}aps_{n_ues}ues.pickle")
-    with open(f"/home/mzi/aps-infomarl/onpolicy/scripts/{k}strongest_{n_aps}aps_{n_ues}ues.pickle", 'wb') as f:
+    print(f"saving at /home/mzi/aps-infomarl/onpolicy/scripts/{k}strongest_{n_aps}aps_{n_ues}ues_dataset.pickle")
+    with open(f"/home/mzi/aps-infomarl/onpolicy/scripts/pret_dataset/{k}strongest_{n_aps}aps_{n_ues}ues_dataset.pickle", 'wb') as f:
         pickle.dump(data_list, f)
