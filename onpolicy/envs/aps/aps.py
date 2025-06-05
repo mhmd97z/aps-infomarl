@@ -135,8 +135,9 @@ class Aps(gym.Env):
         mask = self.simulator.channel_manager.measurement_mask.clone().detach() \
             .flatten().to(torch.int32).unsqueeze(1)
 
-        truncated_sinr_std = simulator_info['sinr'].std(dim=1, unbiased=False).mean()
-        clean_sinr_std = simulator_info['clean_sinr'].std(dim=1, unbiased=False).mean()
+        if self.env_args.simulation_scenario.if_power_in_db:
+            truncated_sinr_std = (10 ** (simulator_info['sinr'] / 10)).std(dim=1, unbiased=False).mean()
+            clean_sinr_std = (10 ** (simulator_info['clean_sinr'] / 10)).std(dim=1, unbiased=False).mean()
 
         info = {
             'min_sinr': simulator_info['sinr'].mean(dim=0).min().mean(),
