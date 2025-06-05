@@ -10,7 +10,7 @@ import numpy as np
 
 sys.path.append("../../")
 from onpolicy.config import get_config
-from onpolicy.scripts.train_aps import make_train_env
+from onpolicy.scripts.train_gnnmappo import make_train_env
 
 
 def stack_list_dict_tensor(input):

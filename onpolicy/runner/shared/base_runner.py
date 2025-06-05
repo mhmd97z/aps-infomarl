@@ -1,15 +1,9 @@
-import wandb
 import os
-from typing import Dict
-import numpy as np
+import wandb
 import torch
-
-# from torch.utils.tensorboard import SummaryWriter
+import numpy as np
+from typing import Dict
 from tensorboardX import SummaryWriter  # tensorboardX to work with macos
-
-def _t2n(x):
-    """Convert torch tensor to a numpy array."""
-    return x.detach().cpu().numpy()
 
 
 class Runner(object):
@@ -130,12 +124,33 @@ class Runner(object):
                 print(f"Restoring from checkpoint stored in {self.model_dir}")
                 self.restore()
             self.trainer = MATTrainer(self.all_args, self.policy, self.num_agents, device=self.device)
-            self.buffer = MatReplayBuffer(self.all_args,
-                                        self.num_agents,
-                                        self.envs.observation_space[0],
-                                        share_observation_space,
-                                        self.envs.action_space[0],
-                                         self.all_args.env_name)
+            self.buffer = MatReplayBuffer(
+                self.all_args,
+                self.num_agents,
+                self.envs.observation_space[0],
+                share_observation_space,
+                self.envs.action_space[0],
+                    self.all_args.env_name
+            )
+
+        elif self.all_args.algorithm_name == "mappo":
+            from onpolicy.algorithms.mappo.mappo_algo import R_MAPPO
+            from onpolicy.algorithms.mappo.mappo_policy import R_MAPPOPolicy
+            from onpolicy.utils.mappo_replay_buffer import MappoReplayBuffer
+            self.policy = R_MAPPOPolicy(self.all_args, self.envs.observation_space[0], 
+                                        share_observation_space, self.envs.action_space[0], 
+                                        device=self.device)
+            if self.model_dir is not None:
+                print(f"Restoring from checkpoint stored in {self.model_dir}")
+                self.restore(self.model_dir)
+            self.trainer = R_MAPPO(self.all_args, self.policy, device = self.device)
+            self.buffer = MappoReplayBuffer(
+                self.all_args,
+                self.num_agents,
+                self.envs.observation_space[0],
+                share_observation_space,
+                self.envs.action_space[0]
+            )
 
         else:
             raise NotImplementedError(
@@ -173,12 +188,15 @@ class Runner(object):
         self.buffer.after_update()
         return train_infos
 
-    def save(self):
+    def save(self, episode=None):
         """Save policy's actor and critic networks."""
-        policy_actor = self.trainer.policy.actor
-        torch.save(policy_actor.state_dict(), str(self.save_dir) + "/actor.pt")
-        policy_critic = self.trainer.policy.critic
-        torch.save(policy_critic.state_dict(), str(self.save_dir) + "/critic.pt")
+        if episode is None:
+            policy_actor = self.trainer.policy.actor
+            torch.save(policy_actor.state_dict(), str(self.save_dir) + "/actor.pt")
+            policy_critic = self.trainer.policy.critic
+            torch.save(policy_critic.state_dict(), str(self.save_dir) + "/critic.pt")
+        else:
+            self.policy.save(self.save_dir, episode)
 
     def restore(self):
         """Restore policy's networks from a saved model."""
@@ -186,11 +204,15 @@ class Runner(object):
             str(self.model_dir) + "/actor.pt", map_location=torch.device("cpu")
         )
         self.policy.actor.load_state_dict(policy_actor_state_dict)
-        # if not self.all_args.use_render:
-        #     policy_critic_state_dict = torch.load(
-        #         str(self.model_dir) + "/critic.pt", map_location=torch.device("cpu")
-        #     )
-        #     self.policy.critic.load_state_dict(policy_critic_state_dict)
+        if not self.all_args.use_render:
+            try:
+                policy_critic_state_dict = torch.load(
+                    str(self.model_dir) + "/critic.pt", map_location=torch.device("cpu")
+                )
+                self.policy.critic.load_state_dict(policy_critic_state_dict)
+            except FileNotFoundError:
+                print("No critic model found, using default critic.")
+            
 
     def process_infos(self, infos):
         """Process infos returned by environment."""

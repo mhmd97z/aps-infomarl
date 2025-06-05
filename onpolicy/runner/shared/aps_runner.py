@@ -97,7 +97,10 @@ class ApsRunner(Runner):
 
             # save model
             if episode % self.save_interval == 0 or episode == episodes - 1:
-                self.save()
+                if self.all_args.algorithm_name == "fmat" or self.all_args.algorithm_name == "mat":
+                    self.save(episode)
+                else:
+                    self.save()
 
             # log information
             if episode % self.log_interval == 0:
@@ -248,6 +251,12 @@ class ApsRunner(Runner):
         if self.all_args.algorithm_name == "gnnmappo":
             next_values = self.trainer.policy.get_values(
                 self.buffer.graph_storage[-1],
+                np.concatenate(self.buffer.rnn_states_critic[-1]),
+                np.concatenate(self.buffer.masks[-1]),
+            )
+        elif self.all_args.algorithm_name == "mappo":
+            next_values = self.trainer.policy.get_values(
+                np.concatenate(self.buffer.share_obs[-1]),
                 np.concatenate(self.buffer.rnn_states_critic[-1]),
                 np.concatenate(self.buffer.masks[-1]),
             )
