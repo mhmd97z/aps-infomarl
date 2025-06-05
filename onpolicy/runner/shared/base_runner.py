@@ -69,9 +69,10 @@ class Runner(object):
             share_observation_space = self.envs.observation_space[0]
 
         if self.all_args.algorithm_name == "gnnmappo":
-            from onpolicy.algorithms.gnnmappo.graph_aps_mappo import GR_MAPPO as TrainAlgo
-            from onpolicy.algorithms.gnnmappo.graph_aps_MAPPOPolicy import GR_MAPPOPolicy as Policy
-            self.policy = Policy(
+            from onpolicy.algorithms.gnnmappo.graph_aps_mappo import GR_MAPPO
+            from onpolicy.algorithms.gnnmappo.graph_aps_MAPPOPolicy import GR_MAPPOPolicy
+            from onpolicy.utils.gnnmappo_graph_buffer import GnnMappoReplayBuffer
+            self.policy = GR_MAPPOPolicy(
                 self.all_args,
                 self.envs.observation_space[0],
                 share_observation_space,
@@ -81,8 +82,7 @@ class Runner(object):
             if self.model_dir is not None:
                 print(f"Restoring from checkpoint stored in {self.model_dir}")
                 self.restore()
-            self.trainer = TrainAlgo(self.all_args, self.policy, device=self.device)
-            from onpolicy.utils.gnnmappo_graph_buffer import GnnMappoReplayBuffer
+            self.trainer = GR_MAPPO(self.all_args, self.policy, device=self.device)
             self.buffer = GnnMappoReplayBuffer(
                 self.all_args,
                 self.num_agents,
@@ -92,9 +92,10 @@ class Runner(object):
             )
 
         elif self.all_args.algorithm_name == "fmat":
-            from onpolicy.algorithms.fmat.mat_trainer import MATTrainer as TrainAlgo
-            from onpolicy.algorithms.fmat.transformer_policy import TransformerPolicy as Policy
-            self.policy = Policy(
+            from onpolicy.algorithms.fmat.mat_trainer import MATTrainer
+            from onpolicy.algorithms.fmat.transformer_policy import TransformerPolicy
+            from onpolicy.utils.fmat_graph_buffer import FmatReplayBuffer
+            self.policy = TransformerPolicy(
                 self.all_args,
                 self.envs.observation_space[0],
                 share_observation_space,
@@ -105,8 +106,7 @@ class Runner(object):
             if self.model_dir is not None:
                 print(f"Restoring from checkpoint stored in {self.model_dir}")
                 self.restore()
-            self.trainer = TrainAlgo(self.all_args, self.policy,  self.num_agents, device=self.device)
-            from onpolicy.utils.fmat_graph_buffer import FmatReplayBuffer
+            self.trainer = MATTrainer(self.all_args, self.policy,  self.num_agents, device=self.device)
             self.buffer = FmatReplayBuffer(
                 self.all_args,
                 self.num_agents,
@@ -115,6 +115,27 @@ class Runner(object):
                 self.envs.action_space[0],
                 self.all_args.env_name
             )
+
+        elif self.all_args.algorithm_name == "mat":
+            from onpolicy.algorithms.mat.mat_trainer import MATTrainer
+            from onpolicy.algorithms.mat.transformer_policy import TransformerPolicy
+            from onpolicy.utils.mat_graph_buffer import MatReplayBuffer
+            self.policy = TransformerPolicy(self.all_args,
+                             self.envs.observation_space[0],
+                             share_observation_space,
+                             self.envs.action_space[0],
+                             self.num_agents,
+                             device=self.device)
+            if self.model_dir is not None:
+                print(f"Restoring from checkpoint stored in {self.model_dir}")
+                self.restore()
+            self.trainer = MATTrainer(self.all_args, self.policy, self.num_agents, device=self.device)
+            self.buffer = MatReplayBuffer(self.all_args,
+                                        self.num_agents,
+                                        self.envs.observation_space[0],
+                                        share_observation_space,
+                                        self.envs.action_space[0],
+                                         self.all_args.env_name)
 
         else:
             raise NotImplementedError(

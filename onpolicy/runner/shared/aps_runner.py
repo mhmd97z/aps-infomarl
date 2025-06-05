@@ -136,8 +136,8 @@ class ApsRunner(Runner):
             deterministic=True
         else:
             deterministic=False
+        self.trainer.prep_rollout()
         if self.all_args.algorithm_name == "gnnmappo":
-            self.trainer.prep_rollout()
             (
                 value,
                 action,

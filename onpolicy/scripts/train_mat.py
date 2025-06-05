@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 import sys
 import os
-import wandb
-import socket
 import setproctitle
 import torch
 import yaml
@@ -17,7 +15,6 @@ from onpolicy.envs.aps.aps import Aps
 from onpolicy.envs.env_wrappers import ApsSubprocVecEnv
 from onpolicy.runner.shared.aps_runner import ApsRunner as Runner
 
-
 def make_train_env(all_args, if_graph=True):
     def get_env_fn(rank):
         def init_env():
@@ -31,9 +28,8 @@ def make_train_env(all_args, if_graph=True):
 
         return init_env
 
-    return ApsSubprocVecEnv(
-        [get_env_fn(i) for i in range(all_args.n_rollout_threads)], if_graph=if_graph
-    )
+    return ApsSubprocVecEnv([get_env_fn(i) for i in range(all_args.n_rollout_threads)])
+
 
 def parse_args(args, parser):
     parser.add_argument('--map_name', type=str, default='3m', help="Which smac map to run on")
@@ -57,6 +53,7 @@ def parse_args(args, parser):
     parser.add_argument("--n_head", type=int, default=1)
     parser.add_argument("--dec_actor", action='store_true', default=False)
     parser.add_argument("--share_actor", action='store_true', default=False)
+
 
     all_args = parser.parse_known_args(args)[0]
 
