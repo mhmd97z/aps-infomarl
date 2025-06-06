@@ -9,3 +9,4 @@ out_*
 *.pyc
 results/
 *.pickle
+saved_results

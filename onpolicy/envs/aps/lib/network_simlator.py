@@ -192,6 +192,7 @@ class NetworkSimulator:
             # print("G: ", G)
             # print("rho_d: ", rho_d)
             # print("serving_mask: ", self.serving_mask)
+
             if self.scenario_conf.precoding_algorithm == "optimal":
                 _, allocated_power = self.power_control.get_optimal_sinr(G, rho_d, self.serving_mask.clone().cpu().numpy()) # allocating power
                 embedding, graph = None, None
@@ -224,8 +225,8 @@ class NetworkSimulator:
             # print("---------")
             # if (sinr.std() > 3).any():
             #     raise
-            # raise
-            time.sleep(0.1)
+
+            # time.sleep(0.1)
             # store the info
             self.datastore.add(channel_coef=masked_G, power_coef=masked_allocated_power, 
                                embedding=embedding, sinr=sinr, clean_sinr=clean_sinr,

@@ -2,8 +2,6 @@
 import os, sys
 import argparse
 from distutils.util import strtobool
-import wandb
-import socket
 import yaml
 import setproctitle
 import numpy as np
@@ -14,7 +12,7 @@ import torch.multiprocessing as mp
 
 sys.path.append(os.path.abspath(os.getcwd()))
 sys.path.append("../../")
-from utils.utils import print_args, print_box, connected_to_internet
+from onpolicy.utils.util import print_args, print_box
 from onpolicy.config import get_config
 from onpolicy.envs.aps.aps import Aps
 from onpolicy.envs.env_wrappers import ApsSubprocVecEnv
