@@ -1,0 +1,6 @@
+name: your_env_name
+channels:
+  - glotzer
+  - conda-forge
+  - defaults
+prefix: /home/mzi/anaconda3/envs/your_env_name
