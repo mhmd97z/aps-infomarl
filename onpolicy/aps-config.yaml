@@ -8,10 +8,10 @@ env_args:
   # reward
   sinr_threshold: 0
   se_coef: 20 # 10-20 for step, 5 for exponential
-  power_coef: 5
+  power_coef: 10 # 10
   sec_to_pc_switch_threshold: 10.0
-  if_use_local_power_sum: False
-  if_sum_cost: False
+  if_use_local_power_sum: True
+  if_sum_cost: True
   if_connection_cost: True
   if_full_cooperation: False
 
@@ -24,7 +24,7 @@ env_args:
     max_measurment_ap_count: 20
     power_control_saved_model: /home/mzi/aps-gnn/onpolicy/envs/aps/lib/gnn_olp/partial_model/epoch=507-step=773900.ckpt
     data_normalization_config: /home/mzi/aps-gnn/onpolicy/envs/aps/lib/gnn_olp/partial_model/normalization_config.yaml
-    precoding_algorithm: olp # olp, mrt, optimal
+    precoding_algorithm: mrt # olp, mrt, optimal
     seed: 100
     float_dtype_sim: torch.float64
     ap_radiation_power: 0.2
@@ -35,4 +35,8 @@ env_args:
     ue_mobility_type: vehicular # pedestrain, vehicular
     simulation_timestep: 50 # ms
     step_length: 10
-    if_remove_off_aps_form_olp: False
+    if_remove_off_aps_form_olp: True
+
+# ap-ue: 6-20, 9-30, 6-30, 9-20
+# config: 1-1-1-10, 1-0-1-10
+# k-strongest: 6, 7, 8, gnnmappo, gnnmappo-pret

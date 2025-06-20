@@ -193,11 +193,10 @@ class MrtPowerControl(PowerControl):
     def __init__(self, conf):
         super().__init__(conf)
 
-    def get_power_coef(self, G, rho_d):
-        # assumes full obsevability
-        number_of_aps, number_of_ues = G.shape
+    def get_power_coef(self, G, mask):
+        ap_connected_users_repeated = mask.sum(dim=1, keepdim=True).repeat(1, G.shape[1])
         power_budget = torch.ones_like(G).to(**self.tpdv) \
-            * torch.sqrt(torch.tensor(1 / number_of_ues)).to(**self.tpdv)
+            * torch.sqrt(torch.tensor(1 / ap_connected_users_repeated)).to(**self.tpdv)
         power_coef = torch.conj(G) / torch.abs(G) * power_budget
 
-        return power_coef, None, None
+        return power_coef
